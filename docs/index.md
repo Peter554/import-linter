@@ -99,7 +99,7 @@ Prevent modules from being directly imported, except by modules in an allow-list
 
 ---
 
-Isolate a set of modules from the rest of the project, other than via its public modules.
+Isolate a set of modules, even ones in different parts of the project, from everything else other than via its public modules.
 
 [:octicons-arrow-right-24: Read more](contract_types/encapsulated.md)
 </div>

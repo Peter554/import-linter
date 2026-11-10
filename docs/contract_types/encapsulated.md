@@ -8,13 +8,32 @@ except in the ways you allow:
 - The unit must not import any other module in your project.
 - Other modules must not import the unit, except for its public modules.
 
-The unit is made up of the listed `modules` and all of their descendants. They don't have to be next to each other:
-a unit can combine modules from different parts of your project. Imports between the modules in the unit are always
-allowed.
+The unit is made up of the listed `modules` and all of their descendants. The modules don't have to be next to each
+other, so you can keep a feature together as one unit even when it is split across the layers of your project.
 
-For example, if `mypackage.orders` is encapsulated and `mypackage.orders.api` is its only public module, then
-modules in `mypackage.orders` may import each other, but cannot import anything else in `mypackage`. Modules outside
-`mypackage.orders` may import `mypackage.orders.api` (and its descendants), but not the rest of `mypackage.orders`.
+For example, a billing feature might be split between a data layer and a domain layer:
+
+```text
+mypackage/
+    data/
+        billing/
+        orders/
+    domain/
+        billing/
+            api.py
+        orders/
+```
+
+If `mypackage.data.billing` and `mypackage.domain.billing` are encapsulated together, with
+`mypackage.domain.billing.api` as their only public module, then:
+
+- Modules in `mypackage.data.billing` and `mypackage.domain.billing` may import each other, in either direction.
+- Neither may import anything else in `mypackage`, such as `mypackage.data.orders`.
+- Modules outside the unit may import `mypackage.domain.billing.api` (and its descendants), but not the rest of the
+  unit.
+
+Parent packages of the unit are outside it, like any other module. In this example, `mypackage.data` may not import
+`mypackage.data.billing`, so `mypackage/data/__init__.py` can't re-export anything from it.
 
 By default these rules apply to every root package of your project. Imports of external packages are not affected.
 
@@ -51,13 +70,13 @@ To allow exceptions, use `ignore_imports`.
     name = Billing is encapsulated
     type = encapsulated
     modules =
-        mypackage.billing
-        mypackage.plugins.*.billing
+        mypackage.data.billing
+        mypackage.domain.billing
     public_modules =
-        mypackage.billing.api
+        mypackage.domain.billing.api
     ignore_imports =
-        mypackage.checkout.views -> mypackage.billing.models
-        mypackage.billing.tasks -> mypackage.notifications.email
+        mypackage.checkout.views -> mypackage.domain.billing.models
+        mypackage.domain.billing.tasks -> mypackage.notifications.email
     ```
 
     ```ini
@@ -103,15 +122,15 @@ To allow exceptions, use `ignore_imports`.
     name = "Billing is encapsulated"
     type = "encapsulated"
     modules = [
-        "mypackage.billing",
-        "mypackage.plugins.*.billing",
+        "mypackage.data.billing",
+        "mypackage.domain.billing",
     ]
     public_modules = [
-        "mypackage.billing.api",
+        "mypackage.domain.billing.api",
     ]
     ignore_imports = [
-        "mypackage.checkout.views -> mypackage.billing.models",
-        "mypackage.billing.tasks -> mypackage.notifications.email",
+        "mypackage.checkout.views -> mypackage.domain.billing.models",
+        "mypackage.domain.billing.tasks -> mypackage.notifications.email",
     ]
     ```
 
@@ -136,7 +155,8 @@ To allow exceptions, use `ignore_imports`.
 
 **Configuration options**
 
-- `modules`: The modules that make up the unit. Descendants of each module are also part of the unit.
+- `modules`: The modules that make up the unit. Descendants of each module are also part of the unit. The modules
+  don't need to be next to each other.
   Each module must exist. Supports [wildcards](index.md#wildcards).
 - `public_modules`: Modules within the unit that other modules are allowed to import. Descendants of each module are
   also public. Each public module must be within the unit. If this is omitted, other modules may not import the unit at

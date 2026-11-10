@@ -17,7 +17,9 @@ class EncapsulatedContract(Contract):
     Encapsulated contracts check that a set of modules is isolated from the rest of the project.
 
     The modules are treated as a single unit, made up of the listed modules and all of their
-    descendants. Imports within the unit are always allowed. Imports across its boundary are not:
+    descendants. The listed modules don't need to be adjacent: for example, a feature split
+    across a data layer and a domain layer can form one unit. Imports within the unit are always
+    allowed. Imports across its boundary are not:
 
         - The unit must not import any other module in scope. (Imports of external packages
           are not affected.)
