@@ -283,12 +283,19 @@ class ForbiddenContract(Contract):
             if as_packages
             else {forbidden_package}
         )
-        for source_module in source_modules:
-            imported_module_names = graph.find_modules_directly_imported_by(source_module.name)
-            for imported_module_name in imported_module_names:
-                imported_module = Module(imported_module_name)
-                if imported_module in forbidden_modules:
-                    chains.add((source_module.name, imported_module.name))
+        source_module_names = {module.name for module in source_modules}
+        forbidden_module_names = {module.name for module in forbidden_modules}
+        # Rather than querying the imports of every module in the source package, find the
+        # importers of the forbidden package as a whole. Usually there are none, so this
+        # avoids a query per source module.
+        # (Squashed modules have no descendants, so treating them as packages is harmless.)
+        importers_of_forbidden = graph.find_modules_that_directly_import(
+            forbidden_package.name, as_package=as_packages
+        )
+        for importer in importers_of_forbidden & source_module_names:
+            imported_module_names = graph.find_modules_directly_imported_by(importer)
+            for imported_module_name in imported_module_names & forbidden_module_names:
+                chains.add((importer, imported_module_name))
         return chains
 
     def _get_all_modules_in_package(self, module: Module, graph: ImportGraph) -> set[Module]:
