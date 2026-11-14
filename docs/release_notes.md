@@ -8,6 +8,8 @@
 * Migrate to import-linter Github organization.
 * Speed up `forbidden` contracts with many source and forbidden modules (for example when using wildcards).
 * Speed up `protected` contracts.
+* Add `private_modules` contract type, for enforcing that modules whose names start with an underscore are only
+  imported from within their parent package.
 
 ## 2.16 (2026-11-06)
 
