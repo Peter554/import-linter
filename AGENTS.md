@@ -19,7 +19,7 @@ just format                # ruff format
 just test                  # run tests via nox on default Python (3.15)
 just test 3.11              # run tests on a specific Python version
 just test-all               # run tests on all supported Python versions via nox
-just build-docs             # build mkdocs site
+just build-docs             # build docs site (zensical)
 just serve-docs             # serve docs locally
 just check                  # lint + build-docs + test-all
 ```

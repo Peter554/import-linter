@@ -1,6 +1,7 @@
 site_name: Import Linter
 site_description: Lint your Python architecture.
 site_url: https://import-linter.readthedocs.io/
+site_dir: dist/docs
 repo_name: import-linter/import-linter
 repo_url: https://github.com/import-linter/import-linter
 
@@ -12,6 +13,7 @@ plugins:
 
 theme:
   name: material
+  variant: classic
   logo: img/import-linter-logo-square.svg
   favicon: img/favicon.svg
   palette:
