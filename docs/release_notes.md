@@ -8,6 +8,8 @@
 * Migrate to import-linter Github organization.
 * Speed up `forbidden` contracts with many source and forbidden modules (for example when using wildcards).
 * Speed up `protected` contracts.
+* Add `public_api` contract type, for preventing modules from being directly imported, except through their public
+  API.
 
 ## 2.16 (2026-11-06)
 
