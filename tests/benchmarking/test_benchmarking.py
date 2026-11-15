@@ -7,6 +7,7 @@ so it is checked like any other test. To time them, use `just benchmark-local`.
 
 from __future__ import annotations
 
+import random
 from copy import deepcopy
 
 import pytest
@@ -20,6 +21,7 @@ from importlinter.contracts.forbidden import ForbiddenContract
 from importlinter.contracts.independence import IndependenceContract
 from importlinter.contracts.layers import LayersContract
 from importlinter.contracts.protected import ProtectedContract
+from importlinter.contracts.public_api import PublicApiContract
 from importlinter.domain.imports import ImportExpression, ModuleExpression
 
 from . import graph as fake_graph
@@ -69,7 +71,7 @@ class TestForbidden:
     def _build_contract() -> ForbiddenContract:
         return ForbiddenContract(
             name="Data must not import anything else",
-            session_options={"root_packages": [fake_graph._ROOT_PACKAGE]},
+            session_options={"root_packages": [fake_graph.ROOT_PACKAGE]},
             contract_options={
                 "source_modules": ["mypkg.data"],
                 "forbidden_modules": ["mypkg.**"],
@@ -95,7 +97,7 @@ class TestProtected:
     def _build_contract() -> ProtectedContract:
         return ProtectedContract(
             name="Application must only be imported by the plugins",
-            session_options={"root_packages": [fake_graph._ROOT_PACKAGE]},
+            session_options={"root_packages": [fake_graph.ROOT_PACKAGE]},
             contract_options={
                 "protected_modules": ["mypkg.application"],
                 "allowed_importers": ["mypkg.plugins"],
@@ -118,12 +120,81 @@ class TestProtected:
         assert not contract_check.kept
 
 
+class TestPublicApi:
+    _CATALOG_API = f"{fake_graph.ROOT_PACKAGE}.catalog.api"
+
+    @pytest.fixture
+    def graph(self, graph) -> ImportGraph:
+        """
+        Add a catalog package to the graph.
+
+        The catalog has an api module and 100 other modules, mypkg.catalog.00 to mypkg.catalog.99.
+        The api imports each of the other modules once, and is imported by 100 modules in each of
+        the domain and application layers. The importing modules are chosen at random, but are the
+        same every time.
+        """
+        fake_graph.add_module(graph, self._CATALOG_API)
+        for number in range(100):
+            imported = f"{fake_graph.ROOT_PACKAGE}.catalog.{number:02d}"
+            fake_graph.add_module(graph, imported)
+            graph.add_import(
+                importer=self._CATALOG_API,
+                imported=imported,
+                line_number=1,
+                line_contents=f"import {imported}",
+            )
+
+        random_generator = random.Random(0)
+        for layer in ("domain", "application"):
+            for number in random_generator.sample(range(fake_graph.MODULES_PER_LAYER), 100):
+                graph.add_import(
+                    importer=fake_graph.module_name(layer, number),
+                    imported=self._CATALOG_API,
+                    line_number=1,
+                    line_contents=f"import {self._CATALOG_API}",
+                )
+        return graph
+
+    @staticmethod
+    def _build_contract() -> PublicApiContract:
+        return PublicApiContract(
+            name="Catalog must only be imported via its api",
+            session_options={"root_packages": [fake_graph.ROOT_PACKAGE]},
+            contract_options={
+                "modules": [f"{fake_graph.ROOT_PACKAGE}.catalog"],
+                "public_modules": [f"{fake_graph.ROOT_PACKAGE}.catalog.api"],
+            },
+        )
+
+    def test_kept(self, graph, benchmark):
+        contract = self._build_contract()
+        contract_check = benchmark(contract.check, graph, verbose=False)
+        assert contract_check.kept
+
+    def test_broken(self, graph, benchmark):
+        # Add violations: 100 modules in the domain layer importing modules in the catalog that
+        # aren't the api, chosen at random but the same every time.
+        random_generator = random.Random(1)
+        for number in random_generator.sample(range(fake_graph.MODULES_PER_LAYER), 100):
+            imported = f"{fake_graph.ROOT_PACKAGE}.catalog.{random_generator.randrange(100):02d}"
+            graph.add_import(
+                importer=fake_graph.module_name("domain", number),
+                imported=imported,
+                line_number=2,
+                line_contents=f"import {imported}",
+            )
+
+        contract = self._build_contract()
+        contract_check = benchmark(contract.check, graph, verbose=False)
+        assert not contract_check.kept
+
+
 class TestLayers:
     @staticmethod
     def _build_contract() -> LayersContract:
         return LayersContract(
             name="Application, domain and data are layered",
-            session_options={"root_packages": [fake_graph._ROOT_PACKAGE]},
+            session_options={"root_packages": [fake_graph.ROOT_PACKAGE]},
             contract_options={
                 "layers": [
                     "mypkg.plugins",
@@ -153,7 +224,7 @@ class TestIndependence:
     def _build_contract() -> IndependenceContract:
         return IndependenceContract(
             name="Plugins are independent",
-            session_options={"root_packages": [fake_graph._ROOT_PACKAGE]},
+            session_options={"root_packages": [fake_graph.ROOT_PACKAGE]},
             contract_options={
                 "modules": ["mypkg.plugins.red", "mypkg.plugins.green", "mypkg.plugins.blue"],
             },
@@ -180,7 +251,7 @@ class TestAcyclicSiblings:
     def _build_contract() -> AcyclicSiblingsContract:
         return AcyclicSiblingsContract(
             name="There are no cycles between siblings",
-            session_options={"root_packages": [fake_graph._ROOT_PACKAGE]},
+            session_options={"root_packages": [fake_graph.ROOT_PACKAGE]},
             contract_options={"ancestors": ["mypkg"]},
         )
 
