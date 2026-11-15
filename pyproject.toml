@@ -116,8 +116,7 @@ dev-minimal = [
     "types-pyyaml>=6.0.12.20261103",
 ]
 docs = [
-    "mkdocs>=1.6.1",
-    "mkdocs-material>=9.7.0",
+    "zensical>=0.1.1",
 ]
 nox = [
     "nox-uv>=0.7.1",

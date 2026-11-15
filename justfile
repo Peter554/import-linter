@@ -55,11 +55,11 @@ autofix:
 
 # Build docs.
 build-docs:
-    @uv run --group=docs mkdocs build --site-dir dist/docs
+    @uv run --group=docs zensical build
 
 # Serve docs in a browser.
 serve-docs:
-    @uv run --group=docs mkdocs serve --open
+    @uv run --group=docs zensical serve --open
 
 # Run all linters, build docs and tests.
 check:

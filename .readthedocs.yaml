@@ -13,6 +13,9 @@ build:
          - uv venv "${READTHEDOCS_VIRTUALENV_PATH}"
       install:
          - UV_PROJECT_ENVIRONMENT="${READTHEDOCS_VIRTUALENV_PATH}" uv sync --frozen --group docs
-
-mkdocs:
-   configuration: mkdocs.yml
+      build:
+         html:
+            - UV_PROJECT_ENVIRONMENT="${READTHEDOCS_VIRTUALENV_PATH}" uv run --frozen --group docs zensical build
+      post_build:
+         - mkdir -p $READTHEDOCS_OUTPUT/html/
+         - cp --recursive dist/docs/* $READTHEDOCS_OUTPUT/html/
