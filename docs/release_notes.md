@@ -6,6 +6,7 @@
   Deprecate the `--config` option.
 * Error if two contracts in the same file share an id, or if a contract id contains a colon.
 * Migrate to import-linter Github organization.
+* Add `isolated` contract type, for preventing modules from making imports to code outside their boundary.
 
 ## 2.16 (2026-11-06)
 
