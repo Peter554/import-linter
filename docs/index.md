@@ -128,6 +128,16 @@ Forbid dependency cycles between siblings.
 </div>
 
 <div class="flowcard" markdown>
+:material-api:{ .lg .middle } __Public API__
+
+---
+
+Prevent modules from being directly imported, except through their public API.
+
+[:octicons-arrow-right-24: Read more](contract_types/public_api.md)
+</div>
+
+<div class="flowcard" markdown>
 :material-set-square:{ .lg .middle } __Custom contract types__
 
 ---

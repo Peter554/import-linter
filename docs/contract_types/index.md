@@ -52,6 +52,16 @@ Forbid dependency cycles between siblings.
 [:octicons-arrow-right-24: Read more](acyclic_siblings.md)
 </div>
 
+<div class="flowcard" markdown>
+:material-api:{ .lg .middle } __Public API__
+
+---
+
+Prevent modules from being directly imported, except through their public API.
+
+[:octicons-arrow-right-24: Read more](public_api.md)
+</div>
+
 ## Custom contract types
 
 If none of the built in contract types meets your needs, you can define a custom contract type: see
