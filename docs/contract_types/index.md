@@ -52,6 +52,16 @@ Forbid dependency cycles between siblings.
 [:octicons-arrow-right-24: Read more](acyclic_siblings.md)
 </div>
 
+<div class="flowcard" markdown>
+:material-package-variant-closed:{ .lg .middle } __Isolated__
+
+---
+
+Prevent modules from making imports to code outside their boundary.
+
+[:octicons-arrow-right-24: Read more](isolated.md)
+</div>
+
 ## Custom contract types
 
 If none of the built in contract types meets your needs, you can define a custom contract type: see

@@ -125,6 +125,16 @@ Forbid dependency cycles between siblings.
 </div>
 
 <div class="flowcard" markdown>
+:material-package-variant-closed:{ .lg .middle } __Isolated__
+
+---
+
+Prevent modules from making imports to code outside their boundary.
+
+[:octicons-arrow-right-24: Read more](contract_types/isolated.md)
+</div>
+
+<div class="flowcard" markdown>
 :material-set-square:{ .lg .middle } __Custom contract types__
 
 ---
