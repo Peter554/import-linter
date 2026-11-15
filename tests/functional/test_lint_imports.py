@@ -77,6 +77,9 @@ sys.path.extend(
         # Type checking imports
         (testpackage_directory, ".typecheckkeptcontract.ini", cli.EXIT_STATUS_SUCCESS),
         (testpackage_directory, ".typecheckbrokencontract.ini", cli.EXIT_STATUS_ERROR),
+        # Public API
+        (testpackage_directory, ".publicapikeptcontract.ini", cli.EXIT_STATUS_SUCCESS),
+        (testpackage_directory, ".publicapibrokencontract.ini", cli.EXIT_STATUS_ERROR),
         # Acyclic siblings
         (cyclicpackage_directory, ".keptcontract.ini", cli.EXIT_STATUS_SUCCESS),
         (cyclicpackage_directory, ".brokencontract.ini", cli.EXIT_STATUS_ERROR),
@@ -102,6 +105,19 @@ def test_lint_imports_renders_broken_contract_guidance_for_broken_contract(capsy
     captured = capsys.readouterr()
     assert "Use the testpackage.high top-level interface." in captured.out
     assert "More information here: http://docs.example.com/high" in captured.out
+
+
+def test_lint_imports_renders_public_api_contract_violations(capsys):
+    os.chdir(testpackage_directory)
+
+    result = cli.lint_imports(config_filename=".publicapibrokencontract.ini")
+
+    assert cli.EXIT_STATUS_ERROR == result
+    captured = capsys.readouterr()
+    assert "Imports into the modules are only allowed via the public modules:" in captured.out
+    assert "- testpackage.utils -> testpackage.high.green (l.3)" in captured.out
+    assert "- testpackage.indirect.brown -> testpackage.high.green (l.1)" in captured.out
+    assert "- testpackage.indirect.yellow -> testpackage.high.green (l.1)" in captured.out
 
 
 def test_lint_imports_raises_clear_error_when_root_package_is_single_file(capsys):
