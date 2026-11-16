@@ -42,3 +42,4 @@
 * [Viraj Ravani](https://github.com/v3ravani)
 * [Vladimir Roshchin](https://github.com/even-even)
 * [Yunus Emre Ozen](https://github.com/ozenyunus35)
+* [zerone0x](https://github.com/zerone0x)
