@@ -372,6 +372,90 @@ class TestPrivateModulesContractCheck:
         assert len(check.warnings) == expected_warnings
 
 
+def _build_docs_graph(importer: str, imported: str) -> ImportGraph:
+    """
+    Build a graph containing every module used in the examples in the docs, with a single import.
+    """
+    graph = ImportGraph()
+    for module in (
+        "mypackage",
+        "mypackage.public",
+        "mypackage.public.blue",
+        "mypackage.blue",
+        "mypackage.green",
+        "mypackage.green._private",
+        "mypackage.green._private.red",
+        "mypackage._private",
+        "mypackage._private.green",
+        "mypackage._private._green",
+    ):
+        graph.add_module(module)
+    graph.add_import(importer=importer, imported=imported, line_number=3, line_contents="-")
+    return graph
+
+
+class TestDocumentedExamples:
+    """
+    The tables in docs/contract_types/private_modules.md.
+    """
+
+    @pytest.mark.parametrize(
+        "importer, imported, allowed",
+        [
+            ("mypackage._private", "mypackage.public", True),
+            ("mypackage.public", "mypackage._private", True),
+            ("mypackage.green", "mypackage.green._private", True),
+            ("mypackage.public.blue", "mypackage._private.green", True),
+            ("mypackage.blue", "mypackage.green._private", False),
+            ("mypackage.blue", "mypackage._private._green", False),
+            ("mypackage.blue", "mypackage.green._private.red", False),
+        ],
+    )
+    def test_how_privacy_works(self, importer, imported, allowed):
+        graph = _build_docs_graph(importer, imported)
+
+        check = _build_contract().check(graph, verbose=False)
+
+        assert check.kept is allowed
+
+    @pytest.mark.parametrize(
+        "packages_with_private_modules, allowed",
+        [
+            (None, False),
+            (["mypackage.green"], False),
+            (["mypackage.blue"], True),
+        ],
+    )
+    def test_limiting_which_modules_are_treated_as_private(
+        self, packages_with_private_modules, allowed
+    ):
+        graph = _build_docs_graph("mypackage.blue", "mypackage.green._private")
+        options = {}
+        if packages_with_private_modules is not None:
+            options["packages_with_private_modules"] = packages_with_private_modules
+
+        check = _build_contract(**options).check(graph, verbose=False)
+
+        assert check.kept is allowed
+
+    def test_sample_output(self):
+        graph = _build_docs_graph("mypackage.blue", "mypackage.green._private")
+        contract = _build_contract()
+        check = contract.check(graph, verbose=False)
+
+        with console.capture() as capture:
+            contract.render_broken_contract(check)
+
+        assert capture.get() == dedent(
+            """\
+            Private modules may only be imported from within their parent package:
+
+            - mypackage.blue -> mypackage.green._private (l.3)
+
+            """
+        )
+
+
 class TestPrivateModulesContractRender:
     def test_render_broken_contract(self):
         graph = _build_graph()
