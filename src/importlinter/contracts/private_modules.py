@@ -14,7 +14,7 @@ class PrivateModulesContract(Contract):
     Private modules contracts check that private modules are only imported from within their
     parent package.
 
-    A module is private if the last component of its name starts with a single underscore,
+    A module is private if the last component of its name starts with an underscore,
     e.g. mypackage.foo._bar. (Names like __main__ are not private.) The descendants of a private
     module are covered too.
 
@@ -22,10 +22,10 @@ class PrivateModulesContract(Contract):
     descendant of its parent package, however deeply nested.
 
     The packages in packages_with_private_modules must not be private, or inside a private module:
-    no component of their names may start with a single underscore. This applies to any packages
-    matched by wildcards too, so e.g. mypackage.** is only valid if mypackage contains no private
-    modules; list mypackage instead. To check the private modules inside mypackage._private, list
-    an ancestor such as mypackage instead.
+    no component of their names may start with an underscore. This applies to any packages matched
+    by wildcards too, so e.g. mypackage.** is only valid if mypackage contains no private modules;
+    list mypackage instead. To check the private modules inside mypackage._private, list an
+    ancestor such as mypackage instead.
 
     Configuration options:
 
@@ -145,7 +145,8 @@ class PrivateModulesContract(Contract):
 
 def _is_private_module(module: str) -> bool:
     """
-    Return whether the last component of the module's name starts with a single underscore.
+    Return whether the last component of the module's name starts with an underscore, unless it's
+    a dunder name (e.g. __main__).
 
     Top level modules are never private, as they have no parent package to be private to.
     """
@@ -165,7 +166,8 @@ def _has_private_component(module: str) -> bool:
 
 def _is_private_name(name: str) -> bool:
     """
-    Return whether a single module name component starts with a single underscore.
+    Return whether a single module name component starts with an underscore, unless it's a dunder
+    name (e.g. __main__).
     """
     return name.startswith("_") and not (name.startswith("__") and name.endswith("__"))
 
