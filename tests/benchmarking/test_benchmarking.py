@@ -279,3 +279,28 @@ class TestPublicAPIPattern:
                 line_contents=f"import {imported}",
             )
         return kept_graph
+
+    @staticmethod
+    def _build_protected_contract() -> ProtectedContract:
+        return ProtectedContract(
+            name="Catalog is only imported via its api",
+            session_options={"root_packages": [fake_graph.ROOT_PACKAGE]},
+            contract_options={
+                "protected_modules": ["mypkg.catalog"],
+                "allowed_importers": [],
+                "ignore_imports": [
+                    # Public API
+                    "** -> mypkg.catalog.api",
+                ],
+            },
+        )
+
+    def test_protected_kept(self, kept_graph, benchmark):
+        contract = self._build_protected_contract()
+        contract_check = _run_benchmark_with_fresh_graph(benchmark, contract, kept_graph)
+        assert contract_check.kept
+
+    def test_protected_broken(self, broken_graph, benchmark):
+        contract = self._build_protected_contract()
+        contract_check = _run_benchmark_with_fresh_graph(benchmark, contract, broken_graph)
+        assert not contract_check.kept
