@@ -4,7 +4,7 @@ import grimp
 
 from importlinter.application import contract_utils, output
 from importlinter.domain import fields, helpers
-from importlinter.domain.contract import Contract, ContractCheck
+from importlinter.domain.contract import Contract, ContractCheck, InvalidContractOptions
 
 from ._common import Link
 
@@ -21,9 +21,11 @@ class PrivateModulesContract(Contract):
     A private module may only be imported by its parent package (e.g. mypackage.foo) or by a
     descendant of its parent package, however deeply nested.
 
-    Privacy is inherited from ancestors, even if the ancestor is not one of the selected packages.
-    For example, with packages_with_private_modules = mypackage.foo._private.child, imports of that module from outside
-    mypackage.foo are reported, because mypackage.foo._private is private.
+    The packages in packages_with_private_modules must not be private, or inside a private module:
+    no component of their names may start with a single underscore. This applies to any packages
+    matched by wildcards too, so e.g. mypackage.** is only valid if mypackage contains no private
+    modules; list mypackage instead. To check the private modules inside mypackage._private, list
+    an ancestor such as mypackage instead.
 
     Configuration options:
 
@@ -53,6 +55,23 @@ class PrivateModulesContract(Contract):
     )
     broken_contract_guidance = fields.TextField(required=False)
 
+    def validate(self) -> None:
+        private_packages = sorted(
+            expression.expression
+            for expression in self.packages_with_private_modules or ()  # type: ignore
+            if _has_private_component(expression.expression)
+        )
+        if private_packages:
+            listed = ", ".join(repr(package) for package in private_packages)
+            raise InvalidContractOptions(
+                {
+                    "packages_with_private_modules": (
+                        f"Packages cannot be private or inside a private module: {listed}. "
+                        "List an ancestor that isn't private instead."
+                    )
+                }
+            )
+
     def check(self, graph: grimp.ImportGraph, verbose: bool) -> ContractCheck:
         import_removal = contract_utils.remove_ignored_imports_and_report(
             graph=graph,
@@ -79,13 +98,33 @@ class PrivateModulesContract(Contract):
     def _get_modules_to_check(self, graph: grimp.ImportGraph) -> set[str]:
         if not self.packages_with_private_modules:
             return set(graph.modules)
-        modules = helpers.module_expressions_to_modules(
-            graph=graph,
-            expressions=self.packages_with_private_modules,  # type: ignore
-            as_packages=True,
-            raise_if_unmatched=True,
-        )
-        return {module.name for module in modules}
+        modules: set[str] = set()
+        for expression in self.packages_with_private_modules:  # type: ignore
+            matched = helpers.module_expression_to_modules(
+                graph=graph,
+                expression=expression,
+                as_packages=False,
+                raise_if_unmatched=True,
+            )
+            # Wildcards can match modules that the validation of literal names would reject.
+            private_matches = sorted(
+                module.name for module in matched if _has_private_component(module.name)
+            )
+            if private_matches:
+                listed = ", ".join(repr(name) for name in private_matches)
+                raise ValueError(
+                    f"The expression '{expression}' in packages_with_private_modules matched "
+                    f"packages that are private or inside a private module: {listed}. "
+                    "Packages cannot be private or inside a private module. "
+                    "List an ancestor that isn't private instead."
+                )
+            modules |= {module.name for module in matched}
+            modules |= {
+                descendant
+                for module in matched
+                for descendant in graph.find_descendants(module.name)
+            }
+        return modules
 
     def render_broken_contract(self, check: ContractCheck) -> None:
         output.print_error(
@@ -112,7 +151,22 @@ def _is_private_module(module: str) -> bool:
     """
     if "." not in module:
         return False
-    name = module.rsplit(".", maxsplit=1)[-1]
+    return _is_private_name(module.rsplit(".", maxsplit=1)[-1])
+
+
+def _has_private_component(module: str) -> bool:
+    """
+    Return whether any component of the module's name is private (see _is_private_name).
+
+    Unlike _is_private_module, this includes the top level component.
+    """
+    return any(_is_private_name(component) for component in module.split("."))
+
+
+def _is_private_name(name: str) -> bool:
+    """
+    Return whether a single module name component starts with a single underscore.
+    """
     return name.startswith("_") and not (name.startswith("__") and name.endswith("__"))
 
 
