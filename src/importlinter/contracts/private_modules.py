@@ -200,9 +200,10 @@ def _get_parent_of_innermost_private_module(module: str) -> str | None:
     Return the parent of the module's innermost private module, or None if there isn't one.
     """
     components = module.split(".")
-    for depth in range(len(components), 1, -1):
-        if _is_private_module(".".join(components[:depth])):
-            return ".".join(components[: depth - 1])
+    # Index 0 is the top level module, which is never private.
+    for index in range(len(components) - 1, 0, -1):
+        if _is_private_name(components[index]):
+            return ".".join(components[:index])
     return None
 
 
