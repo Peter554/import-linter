@@ -24,17 +24,27 @@ just serve-docs             # serve docs locally
 just check                  # lint + build-docs + test-all
 ```
 
-Running a single test (bypass nox, use pytest directly in the uv env):
+### Running tests with pytest directly
+
+**Always pass `-m "not no_ui_deps_installed"` when running pytest directly.** Never run bare `uv run pytest`,
+and never run pytest on a file or directory without the marker expression.
+
+The `ui` extra is installed in the `uv` environment, so the tests marked `no_ui_deps_installed`
+(e.g. `tests/functional/test_cli_without_ui_dependencies.py`) are *expected* to fail there: they only pass in
+the separate nox session where the `ui` extra is absent. If one of these tests fails for you, you ran pytest
+without the marker expression. This is not a bug, not a pre-existing failure and not something your change
+caused; don't investigate it, just re-run with the marker.
 
 ```
-uv run pytest tests/unit/contracts/test_layers.py::test_name
-uv run pytest -m "not no_ui_deps_installed"   # most tests; the default nox session's marker
-uv run pytest -m "no_ui_deps_installed"       # tests specific to the `ui` extra NOT installed
+uv run pytest -m "not no_ui_deps_installed"                                  # everything (what CI runs)
+uv run pytest -m "not no_ui_deps_installed" tests/unit/contracts/test_layers.py   # one file
+uv run pytest -m "not no_ui_deps_installed" tests/unit/contracts/test_layers.py::test_name
 ```
 
-Note: most tests assume the `ui` extra is installed; a small subset (marked `no_ui_deps_installed`)
-specifically test behaviour when it isn't. When adding tests, mark them if they belong in that
-latter group.
+(Add `--benchmark-disable` to match nox exactly.) To run the `no_ui_deps_installed` tests, use `just test`, which
+runs both nox sessions with the right dependencies installed (`uv run pytest -m "no_ui_deps_installed"` will
+not work, as the `ui` extra is still installed). When adding tests that only make sense without the `ui` extra,
+mark them `@pytest.mark.no_ui_deps_installed`.
 
 The project lints its own architecture: `lint-imports` runs against `.importlinter` in this repo,
 and `just lint` will fail if a change introduces a disallowed import.
