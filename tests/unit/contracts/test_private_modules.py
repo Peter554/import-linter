@@ -8,7 +8,7 @@ from grimp import ImportGraph
 from importlinter.application.contract_utils import MissingImport
 from importlinter.application.output import console
 from importlinter.contracts.private_modules import PrivateModulesContract, _is_private_module
-from importlinter.domain.contract import ContractCheck
+from importlinter.domain.contract import ContractCheck, InvalidContractOptions
 
 
 def _build_contract(**contract_options) -> PrivateModulesContract:
@@ -203,26 +203,58 @@ class TestPrivateModulesContractCheck:
 
         assert not check.kept
 
-    def test_packages_with_private_modules_checks_selected_modules_against_private_ancestors(self):
-        # The selected module (child) is public by name, but it inherits privacy from its
-        # ancestor mypackage.foo._private, which is not itself selected.
+    def test_packages_with_private_modules_checks_descendants_against_private_ancestors(self):
+        # The child is public by name, but it inherits privacy from mypackage.foo._private.
         graph = _build_graph(
-            # Illegal: imports the selected module from outside mypackage.foo.
             ("mypackage.other", "mypackage.foo._private.child"),
-            # Legal: imports the selected module from within mypackage.foo.
             ("mypackage.foo.legal", "mypackage.foo._private.child"),
-            # Would be illegal, but sibling isn't selected, so it isn't checked. Only the
-            # selected modules are reported on; the private ancestor just determines
-            # who may import them.
-            ("mypackage.other", "mypackage.foo._private.sibling"),
         )
-        contract = _build_contract(packages_with_private_modules=["mypackage.foo._private.child"])
+        contract = _build_contract(packages_with_private_modules=["mypackage.foo"])
 
         check = contract.check(graph, verbose=False)
 
         assert [
             (link["importer"], link["imported"]) for link in check.metadata["illegal_imports"]
         ] == [("mypackage.other", "mypackage.foo._private.child")]
+
+    @pytest.mark.parametrize(
+        "packages, listed",
+        (
+            (["mypackage.foo._private"], "'mypackage.foo._private'"),
+            (["mypackage.foo._private.child"], "'mypackage.foo._private.child'"),
+            (["mypackage._private.foo._other"], "'mypackage._private.foo._other'"),
+            (["mypackage.*._private"], "'mypackage.*._private'"),
+            (["_mypackage"], "'_mypackage'"),
+            (
+                ["mypackage.foo", "mypackage.b._c", "mypackage._a"],
+                "'mypackage._a', 'mypackage.b._c'",
+            ),
+        ),
+    )
+    def test_private_packages_with_private_modules_are_invalid(self, packages, listed):
+        with pytest.raises(InvalidContractOptions) as exc_info:
+            _build_contract(packages_with_private_modules=packages)
+
+        assert exc_info.value.errors == {
+            "packages_with_private_modules": (
+                f"Packages cannot be private or inside a private module: {listed}. "
+                "List an ancestor that isn't private instead."
+            )
+        }
+
+    @pytest.mark.parametrize(
+        "packages",
+        (
+            ["mypackage.foo"],
+            ["mypackage.my_package"],
+            ["mypackage.__main__"],
+            ["mypackage.*"],
+            ["mypackage.**"],
+            ["mypackage.*.foo"],
+        ),
+    )
+    def test_non_private_packages_with_private_modules_are_valid(self, packages):
+        _build_contract(packages_with_private_modules=packages)
 
     def test_packages_with_private_modules_supports_wildcards(self):
         graph = _build_graph(("mypackage.other", "mypackage.foo._private"))
@@ -245,6 +277,41 @@ class TestPrivateModulesContractCheck:
         contract = _build_contract(packages_with_private_modules=["mypackage.nonexistent"])
 
         with pytest.raises(ValueError, match="mypackage.nonexistent"):
+            contract.check(graph, verbose=False)
+
+    @pytest.mark.parametrize(
+        "expression, matched",
+        (
+            ("mypackage.foo.*", "'mypackage.foo._private'"),
+            ("mypackage.foo.*.child", "'mypackage.foo._private.child'"),
+            ("mypackage.**", "'mypackage.foo._private'"),
+            ("mypackage.foo.**", "'mypackage.foo._private'"),
+        ),
+    )
+    def test_wildcards_matching_private_packages_raise(self, expression, matched):
+        graph = _build_graph()
+        contract = _build_contract(packages_with_private_modules=[expression])
+
+        with pytest.raises(ValueError) as exc_info:
+            contract.check(graph, verbose=False)
+
+        message = str(exc_info.value)
+        assert f"The expression '{expression}'" in message
+        assert matched in message
+
+    def test_wildcards_matching_only_public_packages_are_valid(self):
+        graph = _build_graph(("mypackage.other", "mypackage.foo._private"))
+        contract = _build_contract(packages_with_private_modules=["mypackage.foo.sibling.*"])
+
+        check = contract.check(graph, verbose=False)
+
+        assert check.kept
+
+    def test_unmatched_wildcard_raises(self):
+        graph = _build_graph()
+        contract = _build_contract(packages_with_private_modules=["mypackage.nope.*"])
+
+        with pytest.raises(ValueError, match="did not match any modules"):
             contract.check(graph, verbose=False)
 
     def test_ignore_imports(self):
