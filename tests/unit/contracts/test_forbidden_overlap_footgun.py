@@ -94,3 +94,53 @@ class TestPublicApiPattern:
         contract_check = contract.check(graph=self.build_graph(), verbose=False)
 
         assert not contract_check.kept
+
+
+class TestIsolatedPattern:
+    """
+    "mypackage.billing may not import anything else in mypackage, except mypackage.utils."
+    """
+
+    @staticmethod
+    def build_graph() -> ImportGraph:
+        return build_graph(
+            modules=[
+                "mypackage",
+                "mypackage.billing",
+                "mypackage.billing.invoices",
+                "mypackage.other",
+                "mypackage.utils",
+            ],
+            imports=[
+                # Allowed: shared utilities.
+                ("mypackage.billing.invoices", "mypackage.utils"),
+                # Violation: imports something else in mypackage.
+                ("mypackage.billing.invoices", "mypackage.other"),
+            ],
+        )
+
+    def test_without_wildcard_is_kept_despite_violation(self):
+        # mypackage.billing is inside mypackage, so the pair is skipped and nothing is checked.
+        contract = build_contract(
+            source_modules=["mypackage.billing"],
+            forbidden_modules=["mypackage"],
+            ignore_imports=["** -> mypackage.utils"],
+        )
+
+        contract_check = contract.check(graph=self.build_graph(), verbose=False)
+
+        assert contract_check.kept
+
+    @pytest.mark.parametrize("wildcard", ["mypackage.*", "mypackage.**", "**"])
+    def test_with_wildcard_is_broken(self, wildcard: str):
+        # The wildcard includes other, which is checked. The modules that overlap billing, such as
+        # billing itself, are skipped.
+        contract = build_contract(
+            source_modules=["mypackage.billing"],
+            forbidden_modules=[wildcard],
+            ignore_imports=["** -> mypackage.utils"],
+        )
+
+        contract_check = contract.check(graph=self.build_graph(), verbose=False)
+
+        assert not contract_check.kept
