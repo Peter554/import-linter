@@ -37,9 +37,29 @@ def _kept_graph() -> ImportGraph:
 
 @pytest.fixture
 def graph(_kept_graph) -> ImportGraph:
-    # Copy because checking a contract may mutate the graph.
-    # e.g. removing imports from ignore_imports.
+    # Copy because the benchmarks add imports to the graph.
     return deepcopy(_kept_graph)
+
+
+def _run_benchmark_with_fresh_graph(benchmark, contract, graph):
+    """
+    Benchmark checking the contract, using a fresh copy of the graph for each round.
+
+    This is needed because checking a contract may mutate the graph: for example, the ignored
+    imports are removed from it, and checking raises if an ignored import is missing. Making the
+    copy is part of the setup, so isn't timed.
+
+    Returns the contract check.
+    """
+
+    def setup():
+        return (deepcopy(graph),), {}
+
+    def run(graph_copy):
+        return contract.check(graph_copy, verbose=False)
+
+    # iterations must be 1 when passing setup.
+    return benchmark.pedantic(run, setup=setup, rounds=20, iterations=1)
 
 
 def test_remove_ignored_imports(_kept_graph, benchmark):
@@ -78,7 +98,7 @@ class TestForbidden:
 
     def test_kept(self, graph, benchmark):
         contract = self._build_contract()
-        contract_check = benchmark(contract.check, graph, verbose=False)
+        contract_check = _run_benchmark_with_fresh_graph(benchmark, contract, graph)
         assert contract_check.kept
 
     def test_broken(self, graph, benchmark):
@@ -86,7 +106,7 @@ class TestForbidden:
         fake_graph.add_imports(graph, importer_layer="data", imported_layer="domain", count=100)
 
         contract = self._build_contract()
-        contract_check = benchmark(contract.check, graph, verbose=False)
+        contract_check = _run_benchmark_with_fresh_graph(benchmark, contract, graph)
         assert not contract_check.kept
 
 
@@ -104,7 +124,7 @@ class TestProtected:
 
     def test_kept(self, graph, benchmark):
         contract = self._build_contract()
-        contract_check = benchmark(contract.check, graph, verbose=False)
+        contract_check = _run_benchmark_with_fresh_graph(benchmark, contract, graph)
         assert contract_check.kept
 
     def test_broken(self, graph, benchmark):
@@ -114,7 +134,7 @@ class TestProtected:
         )
 
         contract = self._build_contract()
-        contract_check = benchmark(contract.check, graph, verbose=False)
+        contract_check = _run_benchmark_with_fresh_graph(benchmark, contract, graph)
         assert not contract_check.kept
 
 
@@ -136,7 +156,7 @@ class TestLayers:
 
     def test_kept(self, graph, benchmark):
         contract = self._build_contract()
-        contract_check = benchmark(contract.check, graph, verbose=False)
+        contract_check = _run_benchmark_with_fresh_graph(benchmark, contract, graph)
         assert contract_check.kept
 
     def test_broken(self, graph, benchmark):
@@ -144,7 +164,7 @@ class TestLayers:
         fake_graph.add_imports(graph, importer_layer="data", imported_layer="domain", count=100)
 
         contract = self._build_contract()
-        contract_check = benchmark(contract.check, graph, verbose=False)
+        contract_check = _run_benchmark_with_fresh_graph(benchmark, contract, graph)
         assert not contract_check.kept
 
 
@@ -161,7 +181,7 @@ class TestIndependence:
 
     def test_kept(self, graph, benchmark):
         contract = self._build_contract()
-        contract_check = benchmark(contract.check, graph, verbose=False)
+        contract_check = _run_benchmark_with_fresh_graph(benchmark, contract, graph)
         assert contract_check.kept
 
     def test_broken(self, graph, benchmark):
@@ -171,7 +191,7 @@ class TestIndependence:
         )
 
         contract = self._build_contract()
-        contract_check = benchmark(contract.check, graph, verbose=False)
+        contract_check = _run_benchmark_with_fresh_graph(benchmark, contract, graph)
         assert not contract_check.kept
 
 
@@ -186,7 +206,7 @@ class TestAcyclicSiblings:
 
     def test_kept(self, graph, benchmark):
         contract = self._build_contract()
-        contract_check = benchmark(contract.check, graph, verbose=False)
+        contract_check = _run_benchmark_with_fresh_graph(benchmark, contract, graph)
         assert contract_check.kept
 
     def test_broken(self, graph, benchmark):
@@ -194,5 +214,5 @@ class TestAcyclicSiblings:
         fake_graph.add_imports(graph, importer_layer="data", imported_layer="domain", count=100)
 
         contract = self._build_contract()
-        contract_check = benchmark(contract.check, graph, verbose=False)
+        contract_check = _run_benchmark_with_fresh_graph(benchmark, contract, graph)
         assert not contract_check.kept
