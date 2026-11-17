@@ -19,3 +19,8 @@
     padding: .8rem;
     transition: border .25s, box-shadow .25s;
  }
+
+.md-typeset table:not([class]) td code,
+.md-typeset table:not([class]) th code {
+  white-space: nowrap;
+}

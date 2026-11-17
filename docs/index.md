@@ -118,6 +118,16 @@ Prevent a set of modules depending on each other.
 </div>
 
 <div class="flowcard" markdown>
+:material-lock-outline:{ .lg .middle } __Private modules__
+
+---
+
+Prevent modules whose names begin with an underscore from being imported from outside their parent package. 
+
+[:octicons-arrow-right-24: Read more](contract_types/private_modules.md)
+</div>
+
+<div class="flowcard" markdown>
 :material-graph-outline:{ .lg .middle } __Acyclic siblings__
 
 ---
@@ -125,16 +135,6 @@ Prevent a set of modules depending on each other.
 Forbid dependency cycles between siblings.
 
 [:octicons-arrow-right-24: Read more](contract_types/acyclic_siblings.md)
-</div>
-
-<div class="flowcard" markdown>
-:material-lock-outline:{ .lg .middle } __Private modules__
-
----
-
-Prevent modules whose names begin with an underscore from being imported from outside their parent package.
-
-[:octicons-arrow-right-24: Read more](contract_types/private_modules.md)
 </div>
 
 <div class="flowcard" markdown>

@@ -53,8 +53,8 @@ nav:
        - contract_types/protected.md
        - contract_types/layers.md
        - contract_types/independence.md
-       - contract_types/acyclic_siblings.md
        - contract_types/private_modules.md
+       - contract_types/acyclic_siblings.md
    - ui.md
    - Advanced:
       - api.md
