@@ -295,6 +295,22 @@ class TestPublicAPIPattern:
             },
         )
 
+    @staticmethod
+    def _build_forbidden_contract(source_modules: str) -> ForbiddenContract:
+        return ForbiddenContract(
+            name="Catalog is only imported via its api",
+            session_options={"root_packages": [fake_graph.ROOT_PACKAGE]},
+            contract_options={
+                "allow_indirect_imports": "True",
+                "source_modules": [source_modules],
+                "forbidden_modules": ["mypkg.catalog"],
+                "ignore_imports": [
+                    # Public API
+                    "** -> mypkg.catalog.api",
+                ],
+            },
+        )
+
     def test_protected_kept(self, kept_graph, benchmark):
         contract = self._build_protected_contract()
         contract_check = _run_benchmark_with_fresh_graph(benchmark, contract, kept_graph)
@@ -302,5 +318,33 @@ class TestPublicAPIPattern:
 
     def test_protected_broken(self, broken_graph, benchmark):
         contract = self._build_protected_contract()
+        contract_check = _run_benchmark_with_fresh_graph(benchmark, contract, broken_graph)
+        assert not contract_check.kept
+
+    # The source modules expressions are equivalent: as_packages is true by default, so the
+    # descendants of the matched modules are added, and each expression ends up selecting every
+    # module in mypkg. (** also matches mypkg itself, but that overlaps with the forbidden module
+    # so is skipped.) They differ only in the cost of expanding the expression.
+    #
+    # "mypkg" isn't one of the choices: a source module that contains the forbidden module
+    # overlaps with it, so is never checked, and the contract would be kept whatever the imports.
+    @pytest.mark.parametrize(
+        "source_modules",
+        ["**", "mypkg.*", "mypkg.**"],
+        ids=["all_modules", "direct_children", "all_descendants"],
+    )
+    def test_forbidden_kept(self, kept_graph, benchmark, source_modules):
+        contract = self._build_forbidden_contract(source_modules)
+        contract_check = _run_benchmark_with_fresh_graph(benchmark, contract, kept_graph)
+        assert contract_check.kept
+
+    # See test_forbidden_kept: these source modules expressions are equivalent.
+    @pytest.mark.parametrize(
+        "source_modules",
+        ["**", "mypkg.*", "mypkg.**"],
+        ids=["all_modules", "direct_children", "all_descendants"],
+    )
+    def test_forbidden_broken(self, broken_graph, benchmark, source_modules):
+        contract = self._build_forbidden_contract(source_modules)
         contract_check = _run_benchmark_with_fresh_graph(benchmark, contract, broken_graph)
         assert not contract_check.kept
