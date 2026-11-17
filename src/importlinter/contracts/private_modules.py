@@ -79,10 +79,10 @@ class PrivateModulesContract(Contract):
             unmatched_alerting=self.unmatched_ignore_imports_alerting,  # type: ignore
         )
 
-        modules_to_check = self._get_modules_to_check(graph)
+        modules_to_check = self._get_modules_to_check_imports_of(graph)
         illegal_imports: set[tuple[str, str]] = set()
-        for module in sorted(modules_to_check):
-            illegal_imports |= _find_imports_from_outside_private_scope(graph, module)
+        for imported_module in sorted(modules_to_check):
+            illegal_imports |= _find_illegal_imports(imported_module=imported_module, graph=graph)
 
         links = [
             _build_link(graph, importer=importer, imported=imported)
@@ -95,7 +95,7 @@ class PrivateModulesContract(Contract):
             metadata={"illegal_imports": links},
         )
 
-    def _get_modules_to_check(self, graph: grimp.ImportGraph) -> set[str]:
+    def _get_modules_to_check_imports_of(self, graph: grimp.ImportGraph) -> set[str]:
         if not self.packages_with_private_modules:
             return set(graph.modules)
         modules: set[str] = set()
@@ -170,20 +170,20 @@ def _is_private_name(name: str) -> bool:
     return name.startswith("_") and not (name.startswith("__") and name.endswith("__"))
 
 
-def _find_imports_from_outside_private_scope(
-    graph: grimp.ImportGraph, module: str
-) -> set[tuple[str, str]]:
+def _find_illegal_imports(imported_module: str, graph: grimp.ImportGraph) -> set[tuple[str, str]]:
     """
-    Return the (importer, imported) pairs importing the module from outside the parent package of
-    any private module the module is, or is a descendant of.
+    Return the (importer, imported) pairs that break the privacy rules for the imported module.
+
+    These are the imports of the module from outside the parent package of any private module the
+    module is, or is a descendant of.
 
     A module that is not private, and has no private ancestors, can be imported from anywhere.
     """
-    importers = graph.find_modules_that_directly_import(module)
+    importers = graph.find_modules_that_directly_import(imported_module)
     if not importers:
         return set()
 
-    components = module.split(".")
+    components = imported_module.split(".")
     imports = set()
     for depth in range(2, len(components) + 1):
         private_module = ".".join(components[:depth])
@@ -195,7 +195,7 @@ def _find_imports_from_outside_private_scope(
         parent_prefix = f"{parent}."
         for importer in importers:
             if importer != parent and not importer.startswith(parent_prefix):
-                imports.add((importer, module))
+                imports.add((importer, imported_module))
     return imports
 
 
