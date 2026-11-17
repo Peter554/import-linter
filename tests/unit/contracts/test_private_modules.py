@@ -181,12 +181,12 @@ class TestPrivateModulesContractCheck:
             }
         ]
 
-    def test_packages_limits_which_private_modules_are_checked(self):
+    def test_packages_with_private_modules_limits_which_private_modules_are_checked(self):
         graph = _build_graph(
             ("mypackage.other", "mypackage.foo._private"),
             ("mypackage.foo", "mypackage.other._hidden"),
         )
-        contract = _build_contract(packages=["mypackage.other"])
+        contract = _build_contract(packages_with_private_modules=["mypackage.other"])
 
         check = contract.check(graph, verbose=False)
 
@@ -195,15 +195,15 @@ class TestPrivateModulesContractCheck:
             (link["importer"], link["imported"]) for link in check.metadata["illegal_imports"]
         ] == [("mypackage.foo", "mypackage.other._hidden")]
 
-    def test_packages_includes_descendants(self):
+    def test_packages_with_private_modules_includes_descendants(self):
         graph = _build_graph(("mypackage.foobar", "mypackage.foo._private.child"))
-        contract = _build_contract(packages=["mypackage.foo"])
+        contract = _build_contract(packages_with_private_modules=["mypackage.foo"])
 
         check = contract.check(graph, verbose=False)
 
         assert not check.kept
 
-    def test_packages_checks_selected_modules_against_private_ancestors(self):
+    def test_packages_with_private_modules_checks_selected_modules_against_private_ancestors(self):
         # The selected module (child) is public by name, but it inherits privacy from its
         # ancestor mypackage.foo._private, which is not itself selected.
         graph = _build_graph(
@@ -216,7 +216,7 @@ class TestPrivateModulesContractCheck:
             # who may import them.
             ("mypackage.other", "mypackage.foo._private.sibling"),
         )
-        contract = _build_contract(packages=["mypackage.foo._private.child"])
+        contract = _build_contract(packages_with_private_modules=["mypackage.foo._private.child"])
 
         check = contract.check(graph, verbose=False)
 
@@ -224,25 +224,25 @@ class TestPrivateModulesContractCheck:
             (link["importer"], link["imported"]) for link in check.metadata["illegal_imports"]
         ] == [("mypackage.other", "mypackage.foo._private.child")]
 
-    def test_packages_supports_wildcards(self):
+    def test_packages_with_private_modules_supports_wildcards(self):
         graph = _build_graph(("mypackage.other", "mypackage.foo._private"))
-        contract = _build_contract(packages=["mypackage.*"])
+        contract = _build_contract(packages_with_private_modules=["mypackage.*"])
 
         check = contract.check(graph, verbose=False)
 
         assert not check.kept
 
-    def test_private_module_outside_packages_is_not_checked(self):
+    def test_private_module_outside_packages_with_private_modules_is_not_checked(self):
         graph = _build_graph(("mypackage.other", "mypackage.foo._private"))
-        contract = _build_contract(packages=["mypackage.other"])
+        contract = _build_contract(packages_with_private_modules=["mypackage.other"])
 
         check = contract.check(graph, verbose=False)
 
         assert check.kept
 
-    def test_packages_that_do_not_exist_raises(self):
+    def test_packages_with_private_modules_that_do_not_exist_raises(self):
         graph = _build_graph()
-        contract = _build_contract(packages=["mypackage.nonexistent"])
+        contract = _build_contract(packages_with_private_modules=["mypackage.nonexistent"])
 
         with pytest.raises(ValueError, match="mypackage.nonexistent"):
             contract.check(graph, verbose=False)

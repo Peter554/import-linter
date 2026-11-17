@@ -22,14 +22,15 @@ class PrivateModulesContract(Contract):
     descendant of its parent package, however deeply nested.
 
     Privacy is inherited from ancestors, even if the ancestor is not one of the selected packages.
-    For example, with packages = mypackage.foo._private.child, imports of that module from outside
+    For example, with packages_with_private_modules = mypackage.foo._private.child, imports of that module from outside
     mypackage.foo are reported, because mypackage.foo._private is private.
 
     Configuration options:
 
-        - packages:       The packages (and their descendants) whose private modules should be
-                          checked. Imports of any other modules are not checked. If not
-                          supplied, the private modules in all of the root packages are checked.
+        - packages_with_private_modules:
+                          The packages whose private modules should be checked. Imports of any
+                          other modules are not checked. If not supplied, the private modules in
+                          all of the root packages are checked.
                           (Optional.)
         - ignore_imports: A set of ImportExpressions. These imports will be ignored: if the import
                           would cause a contract to be broken, adding it to the set will cause
@@ -43,7 +44,9 @@ class PrivateModulesContract(Contract):
 
     type_name = "private_modules"
 
-    packages = fields.SetField(subfield=fields.ModuleExpressionField(), required=False)
+    packages_with_private_modules = fields.SetField(
+        subfield=fields.ModuleExpressionField(), required=False
+    )
     ignore_imports = fields.SetField(subfield=fields.ImportExpressionField(), required=False)
     unmatched_ignore_imports_alerting = fields.EnumField(
         contract_utils.AlertLevel, default=contract_utils.AlertLevel.ERROR
@@ -74,11 +77,11 @@ class PrivateModulesContract(Contract):
         )
 
     def _get_modules_to_check(self, graph: grimp.ImportGraph) -> set[str]:
-        if not self.packages:
+        if not self.packages_with_private_modules:
             return set(graph.modules)
         modules = helpers.module_expressions_to_modules(
             graph=graph,
-            expressions=self.packages,  # type: ignore
+            expressions=self.packages_with_private_modules,  # type: ignore
             as_packages=True,
             raise_if_unmatched=True,
         )
