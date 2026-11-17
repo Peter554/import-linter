@@ -31,11 +31,11 @@ import random
 
 from grimp import ImportGraph
 
-_ROOT_PACKAGE = "mypkg"
+ROOT_PACKAGE = "mypkg"
 
 _LAYERS = ("data", "domain", "application", "plugins.red", "plugins.green", "plugins.blue")
 
-_MODULES_PER_LAYER = 1000
+MODULES_PER_LAYER = 1000
 
 # The number of imports between the layers: (importer, imported): number of imports.
 _IMPORT_COUNTS: dict[tuple[str, str], int] = {
@@ -53,8 +53,8 @@ _IMPORT_COUNTS: dict[tuple[str, str], int] = {
 # the same every time. Importing the first N pairs gives N imports, in a random-looking pattern.
 _IMPORT_ORDER: list[tuple[int, int]] = [
     (importer, imported)
-    for importer in range(_MODULES_PER_LAYER)
-    for imported in range(_MODULES_PER_LAYER)
+    for importer in range(MODULES_PER_LAYER)
+    for imported in range(MODULES_PER_LAYER)
 ]
 # Seed shuffle for deterministic results.
 random.Random(0).shuffle(_IMPORT_ORDER)
@@ -67,8 +67,8 @@ def build_graph() -> ImportGraph:
     graph = ImportGraph()
 
     for layer in _LAYERS:
-        for number in range(_MODULES_PER_LAYER):
-            _add_module(graph, _module_name(layer, number))
+        for number in range(MODULES_PER_LAYER):
+            add_module(graph, module_name(layer, number))
 
     for (importer_layer, imported_layer), count in _IMPORT_COUNTS.items():
         add_imports(graph, importer_layer, imported_layer, count)
@@ -92,8 +92,8 @@ def add_imports(
     for importer_number, imported_number in _IMPORT_ORDER:
         if len(imports_added) == count:
             break
-        importer = _module_name(importer_layer, importer_number)
-        imported = _module_name(imported_layer, imported_number)
+        importer = module_name(importer_layer, importer_number)
+        imported = module_name(imported_layer, imported_number)
         if graph.direct_import_exists(importer=importer, imported=imported):
             continue
         graph.add_import(
@@ -113,7 +113,7 @@ def add_imports(
     return tuple(imports_added)
 
 
-def _add_module(graph: ImportGraph, module: str) -> None:
+def add_module(graph: ImportGraph, module: str) -> None:
     """
     Add the module and all of its ancestors to the graph.
     """
@@ -122,8 +122,8 @@ def _add_module(graph: ImportGraph, module: str) -> None:
         graph.add_module(".".join(parts[:depth]))
 
 
-def _module_name(layer: str, number: int) -> str:
+def module_name(layer: str, number: int) -> str:
     """
     Return the name of the module with the number in the layer, e.g. mypkg.plugins.red.007.
     """
-    return f"{_ROOT_PACKAGE}.{layer}.{number:03d}"
+    return f"{ROOT_PACKAGE}.{layer}.{number:03d}"
