@@ -8,7 +8,6 @@
 * Migrate to import-linter Github organization.
 * Speed up `forbidden` contracts with many source and forbidden modules (for example when using wildcards).
 * Speed up `protected` contracts.
-* Clarify in the docs that `root_package` is the importable package name, not the pip distribution name.
 
 ## 2.16 (2026-11-06)
 

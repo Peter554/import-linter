@@ -63,7 +63,7 @@ Or, with multiple root packages:
   The `root_package` _must be importable_: usually this means it has been installed using a Python package manager,
   or it's in the current directory. (Either this or `root_packages` is required.)
   Use the name you import in Python (for example `importlinter`), not the name of the distribution you install with
-  pip (for example `import-linter`). Hyphens are not accepted.
+  your package manager (for example `import-linter`). Hyphens are not accepted.
 - `root_packages`:
   The names of the Python packages to validate. This should be used in place of `root_package` if you want
   to analyse the imports of multiple packages, and is subject to the same requirements. (Either this or
