@@ -174,29 +174,36 @@ def _find_illegal_imports(imported_module: str, graph: grimp.ImportGraph) -> set
     """
     Return the (importer, imported) pairs that break the privacy rules for the imported module.
 
-    These are the imports of the module from outside the parent package of any private module the
-    module is, or is a descendant of.
+    These are the imports of the module from outside the parent package of its innermost private
+    module (the module itself, or its closest private ancestor).
 
-    A module that is not private, and has no private ancestors, can be imported from anywhere.
+    The innermost private module has the strictest scope: anything within its parent package is
+    also within the parent package of any private module further out. A module that is not
+    private, and has no private ancestors, can be imported from anywhere.
     """
-    importers = graph.find_modules_that_directly_import(imported_module)
-    if not importers:
+    parent = _get_parent_of_innermost_private_module(imported_module)
+    if parent is None:
         return set()
 
-    components = imported_module.split(".")
-    imports = set()
-    for depth in range(2, len(components) + 1):
-        private_module = ".".join(components[:depth])
-        if not _is_private_module(private_module):
-            continue
-        parent = ".".join(components[: depth - 1])
-        # The trailing dot prevents e.g. mypackage.foobar being treated as a descendant of
-        # mypackage.foo.
-        parent_prefix = f"{parent}."
-        for importer in importers:
-            if importer != parent and not importer.startswith(parent_prefix):
-                imports.add((importer, imported_module))
-    return imports
+    # The trailing dot prevents e.g. mypackage.foobar being treated as a descendant of
+    # mypackage.foo.
+    parent_prefix = f"{parent}."
+    return {
+        (importer, imported_module)
+        for importer in graph.find_modules_that_directly_import(imported_module)
+        if importer != parent and not importer.startswith(parent_prefix)
+    }
+
+
+def _get_parent_of_innermost_private_module(module: str) -> str | None:
+    """
+    Return the parent of the module's innermost private module, or None if there isn't one.
+    """
+    components = module.split(".")
+    for depth in range(len(components), 1, -1):
+        if _is_private_module(".".join(components[:depth])):
+            return ".".join(components[: depth - 1])
+    return None
 
 
 def _build_link(graph: grimp.ImportGraph, importer: str, imported: str) -> Link:
