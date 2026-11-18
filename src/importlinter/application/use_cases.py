@@ -55,6 +55,7 @@ def lint_imports(
     no_logo: bool = False,
     verbose: bool = False,
     config_filenames: Sequence[str] = (),
+    warn_slower_than: float | None = None,
 ) -> bool:
     """
     Analyse whether a Python package follows a set of contracts, and report on the results.
@@ -75,6 +76,8 @@ def lint_imports(
                             independently, and an import graph is only built once for each
                             distinct graph configuration. If config_filename is also supplied,
                             it is treated as the first file.
+        warn_slower_than:   if supplied, warn about any contract that takes longer than this
+                            many seconds to check. This doesn't affect the result.
 
     Returns:
         True if the linting passed, False if it didn't.
@@ -89,7 +92,12 @@ def lint_imports(
             _validate_contracts_present(config_source)
         _register_built_in_contract_types()
         report = _create_report_from_sources(
-            config_sources, limit_to_contracts, cache_dir, show_timings, verbose
+            config_sources,
+            limit_to_contracts,
+            cache_dir,
+            show_timings,
+            verbose,
+            warn_slower_than=warn_slower_than,
         )
     except Exception as e:
         if is_debug_mode:
@@ -302,6 +310,7 @@ def _create_report_from_sources(
     cache_dir: str | None | type[NotSupplied] = NotSupplied,
     show_timings: bool = False,
     verbose: bool = False,
+    warn_slower_than: float | None = None,
 ) -> Report:
     """
     Check the contracts from one or more config sources, returning a report on the results.
@@ -361,6 +370,7 @@ def _create_report_from_sources(
                 show_timings=show_timings,
                 graph_building_duration=graph_building_duration,
                 filenames=filenames,
+                warn_slower_than=warn_slower_than,
             )
         else:
             report.add_graph(
@@ -545,7 +555,12 @@ def _check_contracts(
                 duration_ms = timer.duration_in_ms
                 report.add_contract_check(contract, check, duration=duration_ms)
                 if verbose:
-                    rendering.render_contract_result_line(contract, check, duration=duration_ms)
+                    rendering.render_contract_result_line(
+                        contract,
+                        check,
+                        duration=duration_ms,
+                        slow=report.is_slow(contract),
+                    )
 
     output.verbose_print(verbose, newline=True)
     return report

@@ -17,9 +17,12 @@ class Report:
         show_timings: bool,
         graph_building_duration: int,
         filenames: list[str] | None = None,
+        warn_slower_than: float | None = None,
     ) -> None:
         self.graph = graph
         self.show_timings = show_timings
+        # Threshold in seconds above which a contract check is reported as slow.
+        self.warn_slower_than = warn_slower_than
         self.graph_building_duration = graph_building_duration
         self.could_not_run = False
         self.invalid_contract_options: dict[str, InvalidContractOptions] = {}
@@ -75,6 +78,17 @@ class Report:
 
     def get_duration(self, contract) -> int:
         return self._durations[contract]
+
+    def is_slow(self, contract: Contract) -> bool:
+        """
+        Return whether the contract took longer than the warn_slower_than threshold to check.
+        """
+        if self.warn_slower_than is None:
+            return False
+        return self._durations[contract] > self.warn_slower_than * 1000
+
+    def get_slow_contracts(self) -> list[Contract]:
+        return [contract for contract in self.contracts if self.is_slow(contract)]
 
     def add_invalid_contract_options(
         self, contract_name: str, exception: InvalidContractOptions

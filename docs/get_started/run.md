@@ -38,6 +38,9 @@ lint-imports
   trace can be seen — useful when investigating or reporting a bug. (Optional.)
 - `--show-timings`:
   Display the times taken to build the graph and check each contract. (Optional.)
+- `--warn-slower-than`:
+  Warn about any contract that takes longer than the given number of seconds to check. Slow contracts
+  are marked `SLOW` and listed at the end of the output. This does not affect the exit code. (Optional.)
 - `--no-logo`:
   Hide the logo at startup. (Optional.)
 - `--verbose`:
@@ -99,6 +102,12 @@ lint-imports --no-cache
 
 ```console
 lint-imports --show-timings
+```
+
+#### Warning about slow contracts
+
+```console
+lint-imports --warn-slower-than 5
 ```
 
 #### Verbose mode

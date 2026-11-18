@@ -282,6 +282,11 @@ def test_show_timings_smoke_test():
     assert cli.EXIT_STATUS_SUCCESS == cli.lint_imports(show_timings=True)
 
 
+def test_warn_slower_than_smoke_test():
+    os.chdir(testpackage_directory)
+    assert cli.EXIT_STATUS_SUCCESS == cli.lint_imports(warn_slower_than=1000)
+
+
 def test_no_logo_smoke_test():
     os.chdir(testpackage_directory)
     assert cli.EXIT_STATUS_SUCCESS == cli.lint_imports(no_logo=True)

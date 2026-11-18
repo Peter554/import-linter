@@ -1,5 +1,9 @@
 # Release notes
 
+## Unreleased
+
+* Add `--warn-slower-than` option to warn about contracts that are slow to check.
+
 ## 2.17 (2026-11-18)
 
 * Accept multiple configuration files as positional arguments to `lint-imports` / `import-linter lint`.

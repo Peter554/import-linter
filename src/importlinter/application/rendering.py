@@ -79,8 +79,9 @@ def render_report(report: Report) -> None:
     )
 
     for contract, contract_check in report.get_contracts_and_checks():
-        duration = report.get_duration(contract) if report.show_timings else None
-        render_contract_result_line(contract, contract_check, duration=duration)
+        slow = report.is_slow(contract)
+        duration = report.get_duration(contract) if report.show_timings or slow else None
+        render_contract_result_line(contract, contract_check, duration=duration, slow=slow)
 
     output.new_line()
 
@@ -90,6 +91,10 @@ def render_report(report: Report) -> None:
         output.new_line()
         _render_warnings(report)
 
+    if report.get_slow_contracts():
+        output.new_line()
+        _render_slow_contracts(report)
+
     if report.broken_count:
         output.new_line()
         output.new_line()
@@ -97,7 +102,7 @@ def render_report(report: Report) -> None:
 
 
 def render_contract_result_line(
-    contract: Contract, contract_check: ContractCheck, duration: int | None
+    contract: Contract, contract_check: ContractCheck, duration: int | None, slow: bool = False
 ) -> None:
     """
     Render the one-line contract check result.
@@ -106,6 +111,7 @@ def render_contract_result_line(
         ...
         duration: The contract check duration in milliseconds (optional).
                   The duration will only be displayed if it is provided.
+        slow: Whether the contract was slow to check. If so, it is marked as SLOW.
     """
     result_text = "KEPT" if contract_check.kept else "BROKEN"
     warnings_count = len(contract_check.warnings)
@@ -120,6 +126,8 @@ def render_contract_result_line(
     output.print(result_suffix_text, color=output.COLORS[output.WARNING], newline=False)
     if duration is not None:
         output.print(f" [{format_duration(duration)}]", newline=False)
+    if slow:
+        output.print(" SLOW", color=output.COLORS[output.WARNING], newline=False)
     output.new_line()
 
 
@@ -179,6 +187,17 @@ def _render_warnings(report: Report) -> None:
             output.print_heading(contract.name, output.HEADING_LEVEL_THREE, style=output.WARNING)
             for warning in check.warnings:
                 output.print_warning(f"- {warning}")
+
+
+def _render_slow_contracts(report: Report) -> None:
+    assert report.warn_slower_than is not None
+    output.print_heading("Slow contracts", output.HEADING_LEVEL_TWO, style=output.WARNING)
+    output.print_warning(
+        f"These contracts took longer than {report.warn_slower_than:g}s to check:"
+    )
+    for contract in report.get_slow_contracts():
+        duration = format_duration(report.get_duration(contract))
+        output.print_warning(f"- {contract.name} ({duration})")
 
 
 def _render_broken_contracts_details(report: Report) -> None:

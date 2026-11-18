@@ -284,6 +284,59 @@ class TestCheckContractsAndPrintReport:
             """
         )
 
+    def test_warn_slower_than(self):
+        timer = FakeTimer()
+        timer.setup(tick_duration=5, increment=10)
+        self._configure(
+            contracts_options=[
+                {"type": "always_passes", "name": "Contract foo"},
+                {"type": "always_passes", "name": "Contract bar"},
+            ],
+            timer=timer,
+        )
+
+        with console.capture() as capture:
+            result = lint_imports(warn_slower_than=20)
+
+        assert result == SUCCESS
+        assert capture.get() == dedent(
+            f"""\
+            {INDENTED_LOGO}
+            ---------
+            Contracts
+            ---------
+
+            Analyzed 26 files, 10 dependencies.
+            -----------------------------------
+
+            Contract foo KEPT
+            Contract bar KEPT [25s] SLOW
+
+            Contracts: 2 kept, 0 broken.
+
+            --------------
+            Slow contracts
+            --------------
+
+            These contracts took longer than 20s to check:
+            - Contract bar (25s)
+            """
+        )
+
+    def test_warn_slower_than_does_not_flag_duration_equal_to_threshold(self):
+        timer = FakeTimer()
+        timer.setup(tick_duration=5, increment=10)
+        self._configure(
+            contracts_options=[{"type": "always_passes", "name": "Contract foo"}],
+            timer=timer,
+        )
+
+        with console.capture() as capture:
+            lint_imports(warn_slower_than=15)
+
+        assert "SLOW" not in capture.get()
+        assert "Slow contracts" not in capture.get()
+
     def test_no_logo(self):
         self._configure(
             contracts_options=[

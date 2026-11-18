@@ -31,6 +31,13 @@ def check_options(f):
         help="Show times taken to build the graph and to check each contract.",
     )(f)
     f = click.option(
+        "--warn-slower-than",
+        type=click.FloatRange(min=0, min_open=True),
+        default=None,
+        metavar="SECONDS",
+        help="Warn about any contract that takes longer than this many seconds to check.",
+    )(f)
+    f = click.option(
         "--no-logo",
         is_flag=True,
         help="Hide the logo at startup.",
@@ -62,6 +69,7 @@ def _run_check(
     no_cache: bool,
     debug: bool,
     show_timings: bool,
+    warn_slower_than: float | None,
     no_logo: bool,
     verbose: bool,
 ) -> None:
@@ -73,6 +81,7 @@ def _run_check(
         no_cache=no_cache,
         is_debug_mode=debug,
         show_timings=show_timings,
+        warn_slower_than=warn_slower_than,
         no_logo=no_logo,
         verbose=verbose,
     )
@@ -221,6 +230,7 @@ def lint_imports(
     no_logo: bool = False,
     verbose: bool = False,
     config_filenames: tuple[str, ...] = (),
+    warn_slower_than: float | None = None,
 ) -> int:
     """
     Check that a project adheres to a set of contracts.
@@ -240,6 +250,8 @@ def lint_imports(
         verbose:            if True, noisily output progress as it goes along.
         config_filenames:   further config files to check in the same run. The graph is only
                             built once for files that share the same top-level configuration.
+        warn_slower_than:   if supplied, warn about any contract that takes longer than this
+                            many seconds to check. This doesn't affect the exit status.
 
     Returns:
         EXIT_STATUS_SUCCESS or EXIT_STATUS_ERROR.
@@ -260,6 +272,7 @@ def lint_imports(
         show_timings=show_timings,
         no_logo=no_logo,
         verbose=verbose,
+        warn_slower_than=warn_slower_than,
     )
 
     if passed:
