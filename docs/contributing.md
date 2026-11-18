@@ -201,4 +201,8 @@ its target version.
 9. Wait for tests to pass on CI.
 10. `git tag v{new version number}`
 11. `git push --tags`
-12. This should kick start the Github `release` workflow which releases the project to PyPI.
+12. This should kick start the Github `release` workflow, which builds the distributions and then releases
+    the project to PyPI.
+13. The `publish` job runs in the `pypi` GitHub environment, which requires approval from a reviewer.
+    Open the workflow run on GitHub, click "Review deployments", tick `pypi` and approve. Once approved,
+    check that the new version appears on [PyPI](https://pypi.org/project/import-linter/).
