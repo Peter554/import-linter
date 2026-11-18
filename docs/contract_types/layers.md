@@ -5,24 +5,126 @@
 Layers contracts enforce a 'layered architecture', where higher layers may depend on lower layers, but not the other
 way around.
 
-**Configuration options**
+### Configuration options
 
-- `layers`:
-  An ordered list with the name of each layer module. If `containers` are specified too, then these names must be
-  *relative to the container*. The order is from higher to lower level layers. Layers wrapped in parentheses
-  (e.g. `(foo)`) will be ignored if they are not present in the file system; otherwise, the contract will fail.
-  It's also possible to include multiple layer modules on the same line, separated by either exclusively pipes
-  (`|`) or exclusively colons (`:`) - see [Multi-item layers](#multi-item-layers). Does not support [wildcards](index.md#wildcards).
-- `containers`:
-  List of the parent modules of the layers, as *absolute names* that you could import, such as
-  `mypackage.foo`. See [Containers](#containers). Supports [wildcards](index.md#wildcards). (Optional.)
-- `ignore_imports`: See [shared options](index.md#options-used-by-multiple-contracts).
-- `unmatched_ignore_imports_alerting`: See [shared options](index.md#options-used-by-multiple-contracts).
-- `exhaustive`. If true, check that the contract declares every possible layer in its list of layers to check.
-  See [Exhaustive contracts](#exhaustive-contracts). (Optional, default False.)
-- `exhaustive_ignores`. A list of layers to ignore in exhaustiveness checks. (Optional.)
+<table>
+  <thead>
+    <tr>
+      <th>Option</th>
+      <th>Required?</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>layers</code></td>
+      <td>Yes</td>
+      <td>
+        <p>An ordered list with the importable name of each layer module, e.g. <code>mypackage.blue</code>.</p>
+        <p>The order is from higher to lower level layers.</p>
+        <p>
+            If the <code>containers</code> option is specified, then the layers are relative to the containers.
+            For example, if a container is <code>mypackage</code> and the layer's absolute import path is <code>mypackage.blue</code>,
+            the layer should be specified here as <code>blue</code>. See <a href="#containers">containers</a>.
+        <p>
+        <p>
+            Layers wrapped in parentheses (e.g. <code>(foo)</code>) will be ignored if they are not present in the file
+            system; otherwise, the contract will fail. (This is only useful if you are using containers.)
+        </p>
+        <p>
+        Multiple modules can be included in the same layer by listing them on the same line, separated by either exclusively pipes
+        (<code>|</code>) or exclusively colons (<code>:</code>). See <a href="#multi-item-layers">multi-item layers</a>.
+        </p>
+        <p><a href="index.md#wildcards">Wildcards</a> are not supported.</p>
+    </td>
+    </tr>
+    <tr>
+      <td><code>containers</code></td>
+      <td>No</td>
+      <td>List of the parent modules of the layers, as absolute import names, such as
+      <code>mypackage.foo</code>. See <a href="#containers">containers</a>.
+    <br><br>
+    Supports <a href="index.md#wildcards">wildcards</a>.</td>
+    </tr>
+    <tr>
+      <td><code>ignore_imports</code></td>
+      <td>No</td>
+      <td>See <a href="index.md#options-used-by-multiple-contracts">shared options</a>.</td>
+    </tr>
+    <tr>
+      <td><code>unmatched_ignore_imports_alerting</code></td>
+      <td>No</td>
+      <td>See <a href="index.md#options-used-by-multiple-contracts">shared options</a>.</td>
+    </tr>
+    <tr>
+      <td><code>broken_contract_guidance</code></td>
+      <td>No</td>
+      <td>See <a href="index.md#options-used-by-multiple-contracts">shared options</a>.</td>
+    </tr>
+    <tr>
+      <td><code>exhaustive</code></td>
+      <td>No</td>
+      <td>If <code>true</code>, check that the contract declares every possible layer in its list of layers to check.
+      See <a href="#exhaustive-contracts">exhaustive contracts</a>. Default is <code>false</code>.</td>
+    </tr>
+    <tr>
+      <td><code>exhaustive_ignores</code></td>
+      <td>No</td>
+      <td>A list of layers to ignore in exhaustiveness checks.</td>
+    </tr>
+  </tbody>
+</table>
 
-### Basic usage
+### Example contracts
+
+=== "INI"
+    
+    ```ini
+    [importlinter:contract:contract-one]
+    name = My layers contract
+    type = layers
+    layers =
+        mypackage.high
+        mypackage.medium
+        mypackage.low
+
+    [importlinter:contract:contract-two]
+    name = My layers contract (using containers)
+    type = layers
+    layers =
+        high
+        medium
+        low
+    containers =
+        mypackage
+    ```
+
+=== "TOML"
+    ```toml
+    [[tool.importlinter.contracts]]
+    name = "My layers contract"
+    type = "layers"
+    layers = [
+        "mypackage.high",
+        "mypackage.medium",
+        "mypackage.low",
+    ]
+    ```
+
+    [[tool.importlinter.contracts]]
+    name = "My layers contract (using containers)"
+    type = "layers"
+    layers = [
+        "high",
+        "medium",
+        "low",
+    ]
+    containers = [
+        "mypackage",
+    ]
+    ```
+
+## Understanding layers
 
 'Layers' is a software architecture pattern in which a list of modules/packages have a dependency direction
 from high to low.
@@ -69,7 +171,7 @@ If a layer is listed in the contract, the contract will be broken if the layer d
 optional by wrapping it in parentheses, but this is only likely to be useful if you are using
 [containers](#containers).
 
-### Layering across root packages
+## Layering across root packages
 
 Layers don't have to be subpackages - they can be top-level (root) packages. We can still layer a Python project
 consisting of three packages `high`, `medium` and `low`, in a directory that does not contain an
@@ -114,7 +216,7 @@ consisting of three packages `high`, `medium` and `low`, in a directory that doe
 In this contract, each top level package is treated as a layer. (Note, though, that they all need to be specified
 as `root_packages` in the `[importlinter]` configuration, too.)
 
-### Containers
+## Containers
 
 Containers allow for a less repetitive way of specifying layers.
 
@@ -186,12 +288,12 @@ Containers are particularly useful if you want to specify a recurring pattern of
 
 In this example, each container has its own layered architecture. For example, it will not allow `mypackage.foo.low`
 to import `mypackage.foo.high`. However, it will allow `mypackage.foo.low` to import `mypackage.bar.high`,
-as they are in different containers:
+as they are in different containers.
 
 Notice that `medium` is wrapped in parentheses, making it an optional layer. This means that if it is missing from any of
 the containers, Import Linter won't complain.
 
-### Exhaustive contracts
+## Exhaustive contracts
 
 If you want to make sure that *every* module in each container is defined as a layer, you can mark the contract as
 'exhaustive'. This means that if a module is added to the code base in the same package as your layers, the contract
@@ -241,7 +343,7 @@ If, say, a module existed called `mypackage.foo.extra`, the contract will fail a
 
 Exhaustive contracts are only supported for layers that define containers.
 
-### Multi-item layers
+## Multi-item layers
 
 Import Linter supports the presence of multiple sibling modules or packages within the same layer. In the diagram below,
 the modules `blue`, `green` and `yellow` are 'independent' in the same layer. This means that, in addition to not
