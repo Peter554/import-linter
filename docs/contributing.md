@@ -86,21 +86,40 @@ just lint
 
 ### Running tests
 
-When you're developing a feature, you'll probably want to run tests quickly, using just the latest supported Python version:
+The easiest way to run tests during development is:
 
 ```console
 just test
 ```
 
-You can also pass a specific Python version, e.g. `just test --python=3.13`.
+This will run tests using just the latest supported Python version.
 
-If you want to invoke pytest directly, e.g. to run a specific test, just use `uv run pytest`, e.g.:
+You can also pass a specific Python version, e.g. `just test 3.13`.
 
-```console
-uv run pytest tests/unit/contracts
-```
+#### Running a subset of tests
+To run a subset of tests, use `uv run pytest` to invoke pytest directly, e.g.:
 
-Finally, you can run all the tests under all supported Python versions with `just test-all`. This gives a more complete
+ ```console
+ uv run pytest tests/unit/contracts
+ ```
+
+!!! warning "Avoid running pytest directly on `tests/functional/test_cli_without_ui_dependencies.py`"
+
+    If you invoke `pytest` on `tests/functional/test_cli_without_ui_dependencies.py` it will fail.
+
+    These tests are only designed to be run in an environment where the `ui` extras are not installed.
+    
+    If you want to exclude these tests from a pytest run, use `-m "not no_ui_deps_installed"`. For example:
+
+    ```console
+    uv run pytest -m "not no_ui_deps_installed" tests/functional
+    ```
+
+#### Running tests under all supported Python versions
+
+You can run all the tests under all supported Python versions with `just test-all`.
+
+This gives a more complete
 picture of whether the changes are compatible with all supported versions. Additionally, it will run tests under the
 *lowest* versions of dependencies specified in `pyproject.toml`, with the lowest supported Python version. 
 
@@ -146,7 +165,7 @@ its target version.
 ### Supporting a new Python version
 
 1. Add a `"Programming Language :: Python :: 3.X"` classifier for the new version in `pyproject.toml`.
-2. Update the default in the `test` recipe in `justfile` (e.g. `test python="3.14"`) to the new version, so
+2. Update the default in the `test` recipe in `justfile` (e.g. `test python="3.15"`) to the new version, so
    that `just test` runs under the latest supported version.
 3. Add a note to `docs/release_notes.md` in the form "Officially support Python 3.x."
 
