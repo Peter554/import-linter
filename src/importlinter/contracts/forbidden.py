@@ -15,25 +15,6 @@ from importlinter.domain.imports import Module
 from ._common import format_line_numbers
 
 
-def _modules_overlap(
-    source_module: Module, forbidden_module: Module, *, as_packages: bool
-) -> bool:
-    """
-    Return whether the source and forbidden modules overlap: either they are the same module, or,
-    when treated as packages, one contains the other.
-
-    Overlapping pairs do not describe a forbiddable import and are skipped by the contract. See the
-    forbidden contract documentation for details.
-    """
-    if source_module == forbidden_module:
-        return True
-    if as_packages:
-        return source_module.is_in_package(forbidden_module) or forbidden_module.is_in_package(
-            source_module
-        )
-    return False
-
-
 class ForbiddenContract(Contract):
     """
     Forbidden contracts check that one set of modules are not imported by another set of modules.
@@ -346,6 +327,25 @@ class ForbiddenContract(Contract):
         if not graph.is_module_squashed(module.name):
             importer_modules |= {Module(m) for m in graph.find_descendants(module.name)}
         return importer_modules
+
+
+def _modules_overlap(
+    source_module: Module, forbidden_module: Module, *, as_packages: bool
+) -> bool:
+    """
+    Return whether the source and forbidden modules overlap: either they are the same module, or,
+    when treated as packages, one contains the other.
+
+    Overlapping pairs do not describe a forbiddable import and are skipped by the contract. See the
+    forbidden contract documentation for details.
+    """
+    if source_module == forbidden_module:
+        return True
+    if as_packages:
+        return source_module.is_in_package(forbidden_module) or forbidden_module.is_in_package(
+            source_module
+        )
+    return False
 
 
 def _get_name_and_ancestors(name: str) -> Iterator[str]:
