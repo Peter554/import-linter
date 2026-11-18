@@ -466,7 +466,7 @@ class TestForbiddenContract:
             ("mypackage.one.alpha", "mypackage.one"),
         ],
     )
-    def test_overlapping_modules_treated_as_packages_are_skipped(
+    def test_imports_within_overlapping_packages_are_allowed(
         self, source_module: str, forbidden_module: str
     ):
         graph = self._build_graph()
@@ -499,6 +499,129 @@ class TestForbiddenContract:
         contract_check = contract.check(graph=graph, verbose=False)
 
         assert not contract_check.kept
+
+    @pytest.mark.parametrize("verbose", (False, True))
+    @pytest.mark.parametrize(
+        "source_modules, forbidden_modules, ignore_imports, allow_indirect_imports, "
+        "expected_violations",
+        [
+            pytest.param(
+                ("mypackage",),
+                ("mypackage.catalog",),
+                ("** -> mypackage.catalog.api",),
+                True,
+                {("mypackage", "mypackage.catalog"): {"mypackage.other"}},
+                id="forbidden-inside-source",
+            ),
+            pytest.param(
+                ("mypackage",),
+                ("mypackage.catalog",),
+                ("** -> mypackage.catalog.api",),
+                False,
+                # billing.invoices -> other -> catalog.internal is not reported, as it contains the
+                # shorter chain other -> catalog.internal.
+                {("mypackage", "mypackage.catalog"): {"mypackage.other"}},
+                id="forbidden-inside-source-indirect",
+            ),
+            pytest.param(
+                ("**",),
+                ("mypackage.catalog",),
+                ("** -> mypackage.catalog.api",),
+                True,
+                # mypackage.catalog.api is a source module, so can't import the rest of the catalog.
+                {
+                    ("mypackage", "mypackage.catalog"): {"mypackage.other"},
+                    ("mypackage.other", "mypackage.catalog"): {"mypackage.other"},
+                    ("mypackage.catalog.api", "mypackage.catalog"): {"mypackage.catalog.api"},
+                },
+                id="forbidden-inside-wildcard-source",
+            ),
+            pytest.param(
+                ("mypackage.billing",),
+                ("mypackage",),
+                ("** -> mypackage.utils",),
+                True,
+                {("mypackage.billing", "mypackage"): {"mypackage.billing.invoices"}},
+                id="source-inside-forbidden",
+            ),
+            pytest.param(
+                ("mypackage.billing",),
+                ("mypackage",),
+                ("** -> mypackage.utils",),
+                False,
+                {("mypackage.billing", "mypackage"): {"mypackage.billing.invoices"}},
+                id="source-inside-forbidden-indirect",
+            ),
+            pytest.param(
+                ("mypackage.billing",),
+                ("**",),
+                ("** -> mypackage.utils",),
+                True,
+                # mypackage.billing.invoices is a forbidden module, so billing can't import it.
+                {
+                    ("mypackage.billing", "mypackage"): {"mypackage.billing.invoices"},
+                    ("mypackage.billing", "mypackage.billing.invoices"): {"mypackage.billing"},
+                    ("mypackage.billing", "mypackage.other"): {"mypackage.billing.invoices"},
+                },
+                id="source-inside-wildcard-forbidden",
+            ),
+        ],
+    )
+    def test_imports_outside_overlap_are_checked(
+        self,
+        source_modules,
+        forbidden_modules,
+        ignore_imports,
+        expected_violations,
+        allow_indirect_imports,
+        verbose,
+    ):
+        """
+        Overlapping source and forbidden modules still forbid imports, other than those within
+        the overlap. See https://github.com/import-linter/import-linter/issues/423.
+        """
+        graph = ImportGraph()
+        for module in (
+            "mypackage",
+            "mypackage.billing",
+            "mypackage.billing.invoices",
+            "mypackage.catalog",
+            "mypackage.catalog.api",
+            "mypackage.catalog.internal",
+            "mypackage.other",
+            "mypackage.utils",
+        ):
+            graph.add_module(module)
+        for importer, imported in (
+            # Violations.
+            ("mypackage.other", "mypackage.catalog.internal"),
+            ("mypackage.billing.invoices", "mypackage.other"),
+            # Imports within an overlap, or ignored.
+            ("mypackage.catalog.api", "mypackage.catalog.internal"),
+            ("mypackage.billing", "mypackage.billing.invoices"),
+            ("mypackage.billing.invoices", "mypackage.utils"),
+            ("mypackage.other", "mypackage.catalog.api"),
+        ):
+            graph.add_import(
+                importer=importer, imported=imported, line_number=1, line_contents="-"
+            )
+        contract = self._build_contract(
+            source_modules=source_modules,
+            forbidden_modules=forbidden_modules,
+            ignore_imports=ignore_imports,
+            allow_indirect_imports=allow_indirect_imports,
+        )
+
+        contract_check = contract.check(graph=graph, verbose=verbose)
+
+        assert not contract_check.kept
+        # Just check where the illegal chains start, as chains vary with allow_indirect_imports.
+        assert {
+            (data["downstream_module"], data["upstream_module"]): {
+                chain[0]["importer"] for chain in data["chains"]
+            }
+            for data in contract_check.metadata["invalid_chains"]
+        } == expected_violations
 
     @pytest.mark.parametrize(
         "as_packages, forbidden_modules, expected_invalid_chains",

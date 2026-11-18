@@ -307,6 +307,8 @@ class TestPublicAPIPattern:
                 "ignore_imports": [
                     # Public API
                     "** -> mypkg.catalog.api",
+                    # Wildcard sources include the catalog's own modules, so allow imports within it.
+                    "mypkg.catalog.** -> mypkg.catalog.**",
                 ],
             },
         )
@@ -323,15 +325,11 @@ class TestPublicAPIPattern:
 
     # The source modules expressions are equivalent: as_packages is true by default, so the
     # descendants of the matched modules are added, and each expression ends up selecting every
-    # module in mypkg. (** also matches mypkg itself, but that overlaps with the forbidden module
-    # so is skipped.) They differ only in the cost of expanding the expression.
-    #
-    # "mypkg" isn't one of the choices: a source module that contains the forbidden module
-    # overlaps with it, so is never checked, and the contract would be kept whatever the imports.
+    # module in mypkg. They differ only in the cost of expanding the expression.
     @pytest.mark.parametrize(
         "source_modules",
-        ["**", "mypkg.*", "mypkg.**"],
-        ids=["all_modules", "direct_children", "all_descendants"],
+        ["mypkg", "**", "mypkg.*", "mypkg.**"],
+        ids=["root_package", "all_modules", "direct_children", "all_descendants"],
     )
     def test_forbidden_kept(self, kept_graph, benchmark, source_modules):
         contract = self._build_forbidden_contract(source_modules)
@@ -341,8 +339,8 @@ class TestPublicAPIPattern:
     # See test_forbidden_kept: these source modules expressions are equivalent.
     @pytest.mark.parametrize(
         "source_modules",
-        ["**", "mypkg.*", "mypkg.**"],
-        ids=["all_modules", "direct_children", "all_descendants"],
+        ["mypkg", "**", "mypkg.*", "mypkg.**"],
+        ids=["root_package", "all_modules", "direct_children", "all_descendants"],
     )
     def test_forbidden_broken(self, broken_graph, benchmark, source_modules):
         contract = self._build_forbidden_contract(source_modules)

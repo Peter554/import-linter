@@ -20,11 +20,11 @@ class ForbiddenContract(Contract):
     Forbidden contracts check that one set of modules are not imported by another set of modules.
     Indirect imports will also be checked.
 
-    Where the source and forbidden modules overlap (the same module is in both, or one is a
-    subpackage containing the other), the source module is not forbidden from importing the
-    forbidden module; such pairs are skipped. This allows a wildcard such as ``mypackage.*`` to be
-    used as a forbidden module even when a source module is one of the modules it matches. See the
-    documentation for details.
+    Each source module is checked against each forbidden module separately. Where they overlap (the
+    same module, or, when treated as packages, one contains the other), imports within the overlap
+    are not forbidden. For example, a source module ``mypackage`` may not import a forbidden module
+    ``mypackage.foo`` from outside ``mypackage.foo``, but ``mypackage.foo`` may import itself. See
+    the documentation for details.
 
     Configuration options:
         - source_modules:    A set of Modules that should not import the forbidden modules.
@@ -95,18 +95,19 @@ class ForbiddenContract(Contract):
         def sort_key(module):
             return module.name
 
+        as_packages: bool = self.as_packages  # type: ignore
+
+        # Each pair is checked as if it were a separate contract. If one module contains the other,
+        # imports within the overlap (the inner package) are allowed, but not imports between it and
+        # the rest of the outer package.
         for source_module in sorted(source_modules, key=sort_key):
             for forbidden_module in self._find_forbidden_modules_to_visit(
                 source_module, forbidden_modules_in_graph, graph, verbose
             ):
-                if _modules_overlap(
-                    source_module,
-                    forbidden_module,
-                    as_packages=self.as_packages,  # type: ignore
-                ):
+                if source_module == forbidden_module:
                     output.verbose_print(
                         verbose,
-                        f"Skipping overlapping modules {source_module} and {forbidden_module}.",
+                        f"Skipping {source_module}, as it is both a source and forbidden module.",
                     )
                     continue
                 output.verbose_print(
@@ -125,13 +126,15 @@ class ForbiddenContract(Contract):
                             source_module,
                             forbidden_module,
                             graph,
-                            self.as_packages,  # type:ignore
+                            as_packages,
                         )
                     else:
                         chains = graph.find_shortest_chains(
                             importer=source_module.name,
                             imported=forbidden_module.name,
-                            as_packages=self.as_packages,  # type:ignore
+                            as_packages=as_packages,
+                            # Needed if one module contains the other.
+                            exclude_shared_descendants=True,
                         )
                     if chains:
                         is_kept = False
@@ -289,6 +292,14 @@ class ForbiddenContract(Contract):
 
         forbidden_module_names_to_visit = imported_names & forbidden_module_names
 
+        # The quick check can't see imports within the source package, which is where a forbidden
+        # module that overlaps with it may be imported from. So always visit those.
+        forbidden_module_names_to_visit |= {
+            module.name
+            for module in forbidden_modules
+            if _modules_overlap(source_module, module, as_packages=as_packages)
+        }
+
         return [Module(name) for name in sorted(forbidden_module_names_to_visit)]
 
     def _get_direct_chains(
@@ -309,6 +320,12 @@ class ForbiddenContract(Contract):
             if as_packages
             else {forbidden_package}
         )
+        # If one package contains the other, ignore the shared modules in the outer package.
+        shared_modules = source_modules & forbidden_modules
+        if len(source_modules) >= len(forbidden_modules):
+            source_modules -= shared_modules
+        else:
+            forbidden_modules -= shared_modules
         for source_module in source_modules:
             imported_module_names = graph.find_modules_directly_imported_by(source_module.name)
             for imported_module_name in imported_module_names:
@@ -335,9 +352,6 @@ def _modules_overlap(
     """
     Return whether the source and forbidden modules overlap: either they are the same module, or,
     when treated as packages, one contains the other.
-
-    Overlapping pairs do not describe a forbiddable import and are skipped by the contract. See the
-    forbidden contract documentation for details.
     """
     if source_module == forbidden_module:
         return True
