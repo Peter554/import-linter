@@ -725,18 +725,6 @@ def _get_exclude_type_checking_imports(user_options: UserOptions) -> bool:
     return exclude_type_checking_imports_str in ("True", "true")
 
 
-def _get_show_timings(user_options: UserOptions) -> bool:
-    """
-    Get a boolean (or None) for the show_timings option in user_options.
-    """
-    try:
-        show_timings_str = user_options.session_options["show_timings"]
-    except KeyError:
-        return False
-    # Cast the string to a boolean.
-    return show_timings_str in ("True", "true")
-
-
 # --- Dot graph generation ---
 
 
