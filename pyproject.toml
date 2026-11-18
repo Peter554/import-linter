@@ -91,6 +91,9 @@ warn_unused_ignores = true
 warn_redundant_casts = true
 
 [tool.pytest.ini_options]
+# The benchmarks are run explicitly via the benchmark recipes in the justfile (and in CI), so
+# they are skipped by default. Passing the directory explicitly still collects it.
+norecursedirs = ["tests/benchmarking", ".*"]
 markers = [
     "no_ui_deps_installed",
 ]
