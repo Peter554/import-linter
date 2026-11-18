@@ -8,6 +8,12 @@
 * Migrate to import-linter Github organization.
 * Speed up `forbidden` contracts with many source and forbidden modules (for example when using wildcards).
 * Speed up `protected` contracts.
+* In `forbidden` contracts where the source and forbidden modules overlap, check imports outside the overlap.
+  Previously overlapping modules were skipped entirely, so a contract could be kept despite illegal imports.
+  For example, with source module `mypackage` and forbidden module `mypackage.foo`, an import from `mypackage.bar`
+  to `mypackage.foo.baz` is now reported. Imports within the overlap are still allowed. Each source and forbidden module
+  pair is checked separately, so a wildcard source module such as `**` may now report imports within a forbidden module:
+  use `ignore_imports` to allow them. See the "Overlapping modules" section of the documentation.
 
 ## 2.16 (2026-11-06)
 
