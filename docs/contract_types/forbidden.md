@@ -95,7 +95,7 @@ Supports <a href="index.md#wildcards">wildcards</a>.</td>
     [importlinter:contract:forbidden-siblings]
     # This contract prevents foo.one from importing
     # anything from its siblings.
-    name = Forbidden descendants contract
+    name = Forbidden siblings contract
     type = forbidden
     source_modules =
       foo.one
@@ -182,7 +182,7 @@ Supports <a href="index.md#wildcards">wildcards</a>.</td>
     forbidden_modules = [
       "foo.one.**",
     ]
-    as_packages = False
+    as_packages = false
     ```
 
     ```toml

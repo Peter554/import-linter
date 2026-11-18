@@ -69,11 +69,11 @@ Supports <a href="index.md#wildcards">wildcards</a>.
     [tool.importlinter]
     root_package = "foo"
 
-    [[tool.importlinter.contract-one]]
+    [[tool.importlinter.contracts]]
     name = "Private modules everywhere"
     type = "private_modules"
 
-    [[tool.importlinter.contract-two]]
+    [[tool.importlinter.contracts]]
     name = "Private modules in green"
     type = "private_modules"
     packages_with_private_modules = ["foo.green"]

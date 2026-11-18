@@ -71,7 +71,7 @@ If none of the built in contract types meets your needs, you can define a custom
 
 - `ignore_imports`: Optional list of imports, each in the form `mypackage.foo.importer -> mypackage.bar.imported`.
   These imports will be ignored: if the import would cause a contract to be broken, adding it to the list will cause the
-  contract be kept instead. Supports [wildcards](index.md#wildcards).
+  contract to be kept instead. Supports [wildcards](index.md#wildcards).
 
 - `unmatched_ignore_imports_alerting`: The alerting level for handling expressions supplied in `ignore_imports`
   that do not match any imports in the graph. Choices are:

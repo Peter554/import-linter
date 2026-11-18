@@ -109,7 +109,6 @@ way around.
         "mypackage.medium",
         "mypackage.low",
     ]
-    ```
 
     [[tool.importlinter.contracts]]
     name = "My layers contract (using containers)"

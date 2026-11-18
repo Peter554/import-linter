@@ -111,7 +111,7 @@ lint-imports --verbose
 
 Run in debug mode, showing full stack traces:
 
-```text
+```console
 lint-imports --debug
 ```
 

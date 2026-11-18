@@ -66,12 +66,12 @@ Supports <a href="index.md#wildcards">wildcards</a>.</td>
     [importlinter]
     root_package = mypackage
     
-    [importlinter:contract:my-contract]
+    [importlinter:contract:minimal-contract]
     name = Minimal acyclic siblings contract
     type = acyclic_siblings
     ancestors = mypackage
     
-    [importlinter:contract:my-contract]
+    [importlinter:contract:contract-with-options]
     name = Acyclic siblings contract with more options
     type = acyclic_siblings
     ancestors =

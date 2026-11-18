@@ -48,7 +48,7 @@ import-linter explore packageone packagetwo packagethree
 
 The graph shows the dependencies between all the immediate children of the package you're viewing.
 
-An arrow can be read as saying "depends on". If package `one` points to `two`, then at least one module in `one` imports a module in `b`.
+An arrow can be read as saying "depends on". If package `one` points to `two`, then at least one module in `one` imports a module in `two`.
 
 !!! example
 
