@@ -93,7 +93,7 @@ class TestForbidden:
             session_options={"root_packages": [fake_graph.ROOT_PACKAGE]},
             contract_options={
                 "source_modules": ["mypkg.data"],
-                "forbidden_modules": ["mypkg.**"],
+                "forbidden_modules": ["mypkg"],
             },
         )
 
