@@ -7,28 +7,59 @@ descendants) are treated as dependencies; if a cycle exists between these depend
 contract begins by checking the children of the supplied ancestors. Then it repeats down the generations,
 drilling into each subpackage and checking those children for cycles.
 
-This is easier to understand with a diagram. Take this package (the arrows represent imports):
+### Configuration options
 
-![Diagram showing cycles between siblings](../img/acyclic-siblings.svg)
+<table>
+  <thead>
+    <tr>
+      <th>Option</th>
+      <th>Required?</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>ancestors</code></td>
+      <td>Yes</td>
+      <td>The packages whose descendants should be checked for cycles.
+    <br><br>
+Supports <a href="index.md#wildcards">wildcards</a>.</td>
+    </tr>
+    <tr>
+      <td><code>depth</code></td>
+      <td>No</td>
+      <td>How many generations of siblings to check, relative to the ancestors. A depth of 0 will only check the
+      children, depth 1 will check grandchildren (as sets of siblings), etc. Can be an integer &gt;=0. Default 10.</td>
+    </tr>
+    <tr>
+      <td><code>skip_descendants</code></td>
+      <td>No</td>
+      <td>The ancestors of children that shouldn't be checked. For example, if
+      <code>mypackage.foo.purple</code> is a skipped descendant, then the children of that package won't be checked for cycles,
+      nor will their descendants.
+    <br><br>
+Supports <a href="index.md#wildcards">wildcards</a>.</td>
+    </tr>
+    <tr>
+      <td><code>ignore_imports</code></td>
+      <td>No</td>
+      <td>See <a href="index.md#options-used-by-multiple-contracts">shared options</a>.</td>
+    </tr>
+    <tr>
+      <td><code>unmatched_ignore_imports_alerting</code></td>
+      <td>No</td>
+      <td>See <a href="index.md#options-used-by-multiple-contracts">shared options</a>.</td>
+    </tr>
+    <tr>
+      <td><code>broken_contract_guidance</code></td>
+      <td>No</td>
+      <td>See <a href="index.md#options-used-by-multiple-contracts">shared options</a>.</td>
+    </tr>
+  </tbody>
+</table>
 
-While no direct cycles exist between individual Python modules, an `acyclic_siblings` contract running on
-`mypackage` will detect a cycle between the children of `mypackage`: `blue` depends on `green`, which depends
-on `red`, which depends on `yellow`, which depends on `blue`. When it drills down a generation, it will also
-find a cycle between the children of `blue`.
+### Example contracts
 
-How many generations are drilled down into is controlled by an optional `depth` argument (which defaults to 10).
-If `depth` is 0, only children of the ancestors will be checked; in the example above, the cycle
-between `blue`, `green`, `red` and `yellow` will be detected (assuming the supplied ancestor is `mypackage`)
-but not the cycle between `blue`'s children. With a `depth` of 1, that cycle will be found too.
-
-Drilldown can be skipped for specific descendants using the `skip_descendants` argument (see below).
-
-**Important:** neither the `depth` or `skip_descendants` options prevent deeper imports from being considered when
-analyzing children in earlier generations. So if `.blue.some.deep.module` imports `.green.another.deep.module`, that could still
-contribute to a cycle between `.blue` and `.green`, even if the `depth` is 0 or `.green.another` is listed
-as a skipped descendant. If you want to ignore an import altogether, use `ignore_imports` instead.
-
-**Examples:**
 
 === "INI"
     ```ini
@@ -81,20 +112,7 @@ as a skipped descendant. If you want to ignore an import altogether, use `ignore
     ]
     ```
 
-**Configuration options**
-
-- `ancestors`: The packages whose descendants should be checked for cycles.
-  Supports [wildcards](index.md#wildcards).
-- `depth`: How many generations of siblings to check, relative to the ancestors. A depth of 0 will only check the
-  children, depth 1 will check grandchildren (as sets of siblings), etc. Can be an integer >=0. Default 10.
-  (Optional.)
-- `skip_descendants`: The ancestors of children that shouldn't be checked. For example, if
-  `mypackage.foo.purple` is a skipped descendant, then the children of that package won't be checked for cycles,
-  nor will their descendants. Supports [wildcards](index.md#wildcards). (Optional.)
-- `ignore_imports`: See [shared options](index.md#options-used-by-multiple-contracts). (Optional.)
-- `unmatched_ignore_imports_alerting`: See [shared options](index.md#options-used-by-multiple-contracts). (Optional.)
-
-**Sample output**
+### Sample output
 
 ```text
 Broken acyclic_siblings contract
@@ -116,3 +134,25 @@ It could be made acyclic by removing 11 dependencies:
 (and 6 more).
 ```
 
+## Understanding acyclic siblings
+
+This contract is easier to understand with a diagram. Take this package (the arrows represent imports):
+
+![Diagram showing cycles between siblings](../img/acyclic-siblings.svg)
+
+While no direct cycles exist between individual Python modules, an `acyclic_siblings` contract running on
+`mypackage` will detect a cycle between the children of `mypackage`: `blue` depends on `green`, which depends
+on `red`, which depends on `yellow`, which depends on `blue`. When it drills down a generation, it will also
+find a cycle between the children of `blue`.
+
+How many generations are drilled down into is controlled by an optional `depth` argument (which defaults to 10).
+If `depth` is 0, only children of the ancestors will be checked; in the example above, the cycle
+between `blue`, `green`, `red` and `yellow` will be detected (assuming the supplied ancestor is `mypackage`)
+but not the cycle between `blue`'s children. With a `depth` of 1, that cycle will be found too.
+
+Drilldown can be skipped for specific descendants using the `skip_descendants` argument.
+
+**Important:** neither the `depth` or `skip_descendants` options prevent deeper imports from being considered when
+analyzing children in earlier generations. So if `.blue.some.deep.module` imports `.green.another.deep.module`, that could still
+contribute to a cycle between `.blue` and `.green`, even if the `depth` is 0 or `.green.another` is listed
+as a skipped descendant. If you want to ignore an import altogether, use `ignore_imports` instead.
