@@ -275,8 +275,8 @@ class ForbiddenContract(Contract):
         sorted by source module name and then forbidden module name.
 
         We only need to search for chains between pairs that are actually connected. A quick check
-        finds those with a single query per source module, instead of searching for chains
-        between every pair.
+        finds those with a single query per module on the smaller side (the source modules or the
+        forbidden modules), instead of searching for chains between every pair.
 
         In verbose mode we report on every pair of modules, so all the pairs are returned and the
         quick check is skipped.
@@ -287,32 +287,54 @@ class ForbiddenContract(Contract):
         if verbose:
             return list(itertools.product(sorted_source_modules, sorted_forbidden_modules))
 
+        source_module_names = {module.name for module in source_modules}
         forbidden_module_names = {module.name for module in forbidden_modules}
         as_packages: bool = self.as_packages  # type: ignore
+        direct = str(self.allow_indirect_imports).lower() == "true"
 
-        modules_to_visit: list[tuple[Module, Module]] = []
-        for source_module in sorted_source_modules:
-            if str(self.allow_indirect_imports).lower() == "true":
-                imported_names = graph.find_modules_directly_imported_by(
-                    source_module.name, as_package=as_packages
-                )
-            else:
-                imported_names = graph.find_upstream_modules(
-                    source_module.name, as_package=as_packages
-                )
+        pair_names: set[tuple[str, str]] = set()
+        if len(source_modules) <= len(forbidden_modules):
+            for source_module in source_modules:
+                if direct:
+                    imported_names = graph.find_modules_directly_imported_by(
+                        source_module.name, as_package=as_packages
+                    )
+                else:
+                    imported_names = graph.find_upstream_modules(
+                        source_module.name, as_package=as_packages
+                    )
+                if as_packages:
+                    # Importing a descendant of a forbidden module is importing the forbidden module
+                    imported_names = {
+                        ancestor_or_self
+                        for name in imported_names
+                        for ancestor_or_self in _get_name_and_ancestors(name)
+                    }
+                for forbidden_name in imported_names & forbidden_module_names:
+                    pair_names.add((source_module.name, forbidden_name))
+        else:
+            # With more source modules than forbidden modules, it's cheaper to query from the
+            # forbidden side.
+            for forbidden_module in forbidden_modules:
+                if direct:
+                    importer_names = graph.find_modules_that_directly_import(
+                        forbidden_module.name, as_package=as_packages
+                    )
+                else:
+                    importer_names = graph.find_downstream_modules(
+                        forbidden_module.name, as_package=as_packages
+                    )
+                if as_packages:
+                    # A descendant of a source module importing is the source module importing
+                    importer_names = {
+                        ancestor_or_self
+                        for name in importer_names
+                        for ancestor_or_self in _get_name_and_ancestors(name)
+                    }
+                for source_name in importer_names & source_module_names:
+                    pair_names.add((source_name, forbidden_module.name))
 
-            if as_packages:
-                # Importing a descendant of a forbidden module is importing the forbidden module
-                imported_names = {
-                    ancestor_or_self
-                    for name in imported_names
-                    for ancestor_or_self in _get_name_and_ancestors(name)
-                }
-
-            for forbidden_name in sorted(imported_names & forbidden_module_names):
-                modules_to_visit.append((source_module, Module(forbidden_name)))
-
-        return modules_to_visit
+        return [(Module(source), Module(forbidden)) for source, forbidden in sorted(pair_names)]
 
     def _get_direct_chains(
         self,
