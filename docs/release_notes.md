@@ -1,5 +1,9 @@
 # Release notes
 
+## latest
+
+* Speed up `forbidden` contracts with many more source modules than forbidden modules.
+
 ## 2.17 (2026-11-18)
 
 * Accept multiple configuration files as positional arguments to `lint-imports` / `import-linter lint`.
