@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import itertools
 from collections.abc import Iterable, Iterator
 
 from grimp import ImportGraph
@@ -111,75 +112,71 @@ class ForbiddenContract(Contract):
         # We only need to check for illegal imports for forbidden modules that are in the graph.
         forbidden_modules_in_graph = [m for m in forbidden_modules if m.name in graph.modules]
 
-        def sort_key(module):
-            return module.name
-
-        for source_module in sorted(source_modules, key=sort_key):
-            for forbidden_module in self._find_forbidden_modules_to_visit(
-                source_module, forbidden_modules_in_graph, graph, verbose
+        for source_module, forbidden_module in self._find_modules_to_visit(
+            source_modules, forbidden_modules_in_graph, graph, verbose
+        ):
+            if _modules_overlap(
+                source_module,
+                forbidden_module,
+                as_packages=self.as_packages,  # type: ignore
             ):
-                if _modules_overlap(
-                    source_module,
-                    forbidden_module,
-                    as_packages=self.as_packages,  # type: ignore
-                ):
-                    output.verbose_print(
-                        verbose,
-                        f"Skipping overlapping modules {source_module} and {forbidden_module}.",
-                    )
-                    continue
                 output.verbose_print(
                     verbose,
-                    f"Searching for import chains from {source_module} to {forbidden_module}...",
+                    f"Skipping overlapping modules {source_module} and {forbidden_module}.",
                 )
-                with settings.TIMER as timer:
-                    subpackage_chain_data = {
-                        "upstream_module": forbidden_module.name,
-                        "downstream_module": source_module.name,
-                        "chains": [],
-                    }
+                continue
+            output.verbose_print(
+                verbose,
+                f"Searching for import chains from {source_module} to {forbidden_module}...",
+            )
+            with settings.TIMER as timer:
+                subpackage_chain_data = {
+                    "upstream_module": forbidden_module.name,
+                    "downstream_module": source_module.name,
+                    "chains": [],
+                }
 
-                    if str(self.allow_indirect_imports).lower() == "true":
-                        chains = self._get_direct_chains(
-                            source_module,
-                            forbidden_module,
-                            graph,
-                            self.as_packages,  # type:ignore
-                        )
-                    else:
-                        chains = graph.find_shortest_chains(
-                            importer=source_module.name,
-                            imported=forbidden_module.name,
-                            as_packages=self.as_packages,  # type:ignore
-                        )
-                    if chains:
-                        is_kept = False
-                        for chain in sorted(chains):
-                            chain_data = []
-                            for importer, imported in [
-                                (chain[i], chain[i + 1]) for i in range(len(chain) - 1)
-                            ]:
-                                import_details = graph.get_import_details(
-                                    importer=importer, imported=imported
-                                )
-                                line_numbers = tuple(j["line_number"] for j in import_details)
-                                chain_data.append(
-                                    {
-                                        "importer": importer,
-                                        "imported": imported,
-                                        "line_numbers": line_numbers,
-                                    }
-                                )
-                            subpackage_chain_data["chains"].append(chain_data)  # type: ignore
-                if subpackage_chain_data["chains"]:
-                    invalid_chains.append(subpackage_chain_data)
-                if verbose:
-                    chain_count = len(subpackage_chain_data["chains"])
-                    pluralized = "s" if chain_count != 1 else ""
-                    duration = rendering.format_duration(timer.duration_in_ms)
-                    output.print(
-                        f"Found {chain_count} illegal chain{pluralized} in {duration}.",
+                if str(self.allow_indirect_imports).lower() == "true":
+                    chains = self._get_direct_chains(
+                        source_module,
+                        forbidden_module,
+                        graph,
+                        self.as_packages,  # type:ignore
                     )
+                else:
+                    chains = graph.find_shortest_chains(
+                        importer=source_module.name,
+                        imported=forbidden_module.name,
+                        as_packages=self.as_packages,  # type:ignore
+                    )
+                if chains:
+                    is_kept = False
+                    for chain in sorted(chains):
+                        chain_data = []
+                        for importer, imported in [
+                            (chain[i], chain[i + 1]) for i in range(len(chain) - 1)
+                        ]:
+                            import_details = graph.get_import_details(
+                                importer=importer, imported=imported
+                            )
+                            line_numbers = tuple(j["line_number"] for j in import_details)
+                            chain_data.append(
+                                {
+                                    "importer": importer,
+                                    "imported": imported,
+                                    "line_numbers": line_numbers,
+                                }
+                            )
+                        subpackage_chain_data["chains"].append(chain_data)  # type: ignore
+            if subpackage_chain_data["chains"]:
+                invalid_chains.append(subpackage_chain_data)
+            if verbose:
+                chain_count = len(subpackage_chain_data["chains"])
+                pluralized = "s" if chain_count != 1 else ""
+                duration = rendering.format_duration(timer.duration_in_ms)
+                output.print(
+                    f"Found {chain_count} illegal chain{pluralized} in {duration}.",
+                )
 
         # Sorting by upstream and downstream module ensures that the output is deterministic
         # and that the same upstream and downstream modules are always adjacent in the output.
@@ -266,49 +263,56 @@ class ForbiddenContract(Contract):
     def _graph_was_built_with_externals(self) -> bool:
         return str(self.session_options.get("include_external_packages")).lower() == "true"
 
-    def _find_forbidden_modules_to_visit(
+    def _find_modules_to_visit(
         self,
-        source_module: Module,
+        source_modules: list[Module],
         forbidden_modules: list[Module],
         graph: ImportGraph,
         verbose: bool,
-    ) -> list[Module]:
+    ) -> list[tuple[Module, Module]]:
         """
-        Return the forbidden modules to search for chains to from the source module, sorted by name.
+        Return the (source module, forbidden module) pairs to search for chains between,
+        sorted by source module name and then forbidden module name.
 
-        We only need to search for chains to the forbidden modules that the source module has
-        chains to. A quick check finds those with a single pass over the imports from the source
-        module, instead of searching for chains to each forbidden module in turn.
+        We only need to search for chains between pairs that are actually connected. A quick check
+        finds those with a single query per source module, instead of searching for chains
+        between every pair.
 
-        In verbose mode we report on every pair of modules, so all the forbidden modules are
-        returned and the quick check is skipped.
+        In verbose mode we report on every pair of modules, so all the pairs are returned and the
+        quick check is skipped.
         """
+        sorted_source_modules = sorted(source_modules, key=lambda module: module.name)
+        sorted_forbidden_modules = sorted(forbidden_modules, key=lambda module: module.name)
+
         if verbose:
-            return sorted(forbidden_modules, key=lambda module: module.name)
+            return list(itertools.product(sorted_source_modules, sorted_forbidden_modules))
 
         forbidden_module_names = {module.name for module in forbidden_modules}
         as_packages: bool = self.as_packages  # type: ignore
 
-        if str(self.allow_indirect_imports).lower() == "true":
-            imported_names = graph.find_modules_directly_imported_by(
-                source_module.name, as_package=as_packages
-            )
-        else:
-            imported_names = graph.find_upstream_modules(
-                source_module.name, as_package=as_packages
-            )
+        modules_to_visit: list[tuple[Module, Module]] = []
+        for source_module in sorted_source_modules:
+            if str(self.allow_indirect_imports).lower() == "true":
+                imported_names = graph.find_modules_directly_imported_by(
+                    source_module.name, as_package=as_packages
+                )
+            else:
+                imported_names = graph.find_upstream_modules(
+                    source_module.name, as_package=as_packages
+                )
 
-        if as_packages:
-            # Importing a descendant of a forbidden module is importing the forbidden module
-            imported_names = {
-                ancestor_or_self
-                for name in imported_names
-                for ancestor_or_self in _get_name_and_ancestors(name)
-            }
+            if as_packages:
+                # Importing a descendant of a forbidden module is importing the forbidden module
+                imported_names = {
+                    ancestor_or_self
+                    for name in imported_names
+                    for ancestor_or_self in _get_name_and_ancestors(name)
+                }
 
-        forbidden_module_names_to_visit = imported_names & forbidden_module_names
+            for forbidden_name in sorted(imported_names & forbidden_module_names):
+                modules_to_visit.append((source_module, Module(forbidden_name)))
 
-        return [Module(name) for name in sorted(forbidden_module_names_to_visit)]
+        return modules_to_visit
 
     def _get_direct_chains(
         self,
